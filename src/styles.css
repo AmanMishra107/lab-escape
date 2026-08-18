@@ -337,21 +337,32 @@
 }
 
 /* custom cursor */
-.cursor-lab,
-.cursor-lab * {
+.custom-cursor,
+.custom-cursor * {
   cursor:
-    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><path d='M3 2 L3 19 L8 14 L11 21 L14 20 L11 13 L18 13 Z' fill='%23F4F1E8' stroke='%23111111' stroke-width='2' stroke-linejoin='round'/></svg>")
-      2 2,
-    auto;
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'><path d='M5 3 L5 22 L10 17.5 L13.2 25 L17 23.4 L13.8 16.2 L21 16 Z' fill='%23F4F1E8' stroke='%23111111' stroke-width='2.4' stroke-linejoin='round'/><path d='M7 6.5 L7 17.2 L9.8 14.6' fill='%23FFD60A'/></svg>")
+      4 3,
+    auto !important;
 }
-.cursor-lab button,
-.cursor-lab a,
-.cursor-lab [role="button"] {
+.custom-cursor button,
+.custom-cursor a,
+.custom-cursor summary,
+.custom-cursor [role="button"],
+.custom-cursor label[for] {
   cursor:
-    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='26' height='26' viewBox='0 0 24 24'><circle cx='12' cy='12' r='8' fill='%23FFD60A' stroke='%23111111' stroke-width='2.5'/><circle cx='12' cy='12' r='2' fill='%23111111'/></svg>")
-      13 13,
-    pointer;
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='30' height='30' viewBox='0 0 30 30'><circle cx='15' cy='15' r='10' fill='%23FFD60A' stroke='%23111111' stroke-width='3'/><circle cx='15' cy='15' r='3' fill='%23111111'/><path d='M15 1.5 v3 M15 25.5 v3 M1.5 15 h3 M25.5 15 h3' stroke='%23111111' stroke-width='3' stroke-linecap='round'/></svg>")
+      15 15,
+    pointer !important;
 }
+.custom-cursor input,
+.custom-cursor textarea,
+.custom-cursor [contenteditable="true"] {
+  cursor:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='28' viewBox='0 0 20 28'><path d='M6 3 h8 M6 25 h8 M10 3 v22' stroke='%23111111' stroke-width='3.5' stroke-linecap='round'/><path d='M6 3 h8 M6 25 h8 M10 3 v22' stroke='%23FFD60A' stroke-width='1.4' stroke-linecap='round'/></svg>")
+      10 14,
+    text !important;
+}
+
 
 .scroll-thin::-webkit-scrollbar {
   width: 10px;
