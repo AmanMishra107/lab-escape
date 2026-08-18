@@ -2,10 +2,13 @@ import { useState } from "react";
 import { CONTACTS, type ChatMessage } from "../../data/messages";
 import { store } from "../../systems/GameState";
 import { sound } from "../../systems/SoundSystem";
+import { LiveChat } from "../live/LiveChat";
 import { BrutButton, Tag } from "../ui/brut";
 
+const LIVE_ID = "__live__";
+
 export function PhoneApp() {
-  const [active, setActive] = useState(CONTACTS[0]!.id);
+  const [active, setActive] = useState(LIVE_ID);
   const [extra, setExtra] = useState<Record<string, ChatMessage[]>>({});
   const contact = CONTACTS.find((c) => c.id === active)!;
   const thread = [...contact.messages, ...(extra[active] ?? [])];
