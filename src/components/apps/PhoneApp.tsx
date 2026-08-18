@@ -10,7 +10,7 @@ const LIVE_ID = "__live__";
 export function PhoneApp() {
   const [active, setActive] = useState(LIVE_ID);
   const [extra, setExtra] = useState<Record<string, ChatMessage[]>>({});
-  const contact = CONTACTS.find((c) => c.id === active)!;
+  const contact = CONTACTS.find((c) => c.id === active) ?? CONTACTS[0]!;
   const thread = [...contact.messages, ...(extra[active] ?? [])];
 
   const send = (text: string) => {
