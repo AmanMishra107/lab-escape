@@ -100,6 +100,7 @@ export function PhoneApp() {
           ))}
         </div>
       </div>
+      )}
     </div>
   );
 }
