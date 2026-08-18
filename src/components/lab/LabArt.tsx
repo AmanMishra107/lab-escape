@@ -23,6 +23,10 @@ export function LabArt({ phase, boot }: { phase: Phase; boot: boolean }) {
           <stop offset="0%" stopColor="var(--color-screen)" />
           <stop offset="100%" stopColor="oklch(0.3 0.05 165)" />
         </linearGradient>
+        <linearGradient id="plasticGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="var(--color-lab-paper)" />
+          <stop offset="100%" stopColor="var(--color-muted)" />
+        </linearGradient>
         <pattern id="floorTile" width="120" height="70" patternUnits="userSpaceOnUse">
           <rect width="120" height="70" fill="var(--color-floor)" />
           <path d="M0 0 H120 M0 0 V70" stroke="var(--color-lab-ink)" strokeWidth="3" opacity="0.35" />
@@ -182,11 +186,7 @@ export function LabArt({ phase, boot }: { phase: Phase; boot: boolean }) {
         {/* modifiers + spacebar */}
         <rect x="18" y="70" width="14" height="14" rx="3" fill="var(--color-muted)" stroke="var(--color-lab-ink)" strokeWidth="2.5" />
         <rect x="344" y="70" width="30" height="14" rx="3" fill="var(--color-muted)" stroke="var(--color-lab-ink)" strokeWidth="2.5" />
-        <rect x="130" y="70" width="0" height="0" />
-        <rect x="120" y="86" width="0" height="0" />
-        <rect x="118" y="70" width="0" height="0" />
-        <rect x="120" y="70" width="0" height="0" />
-        <rect x="112" y="70" width="0" height="0" />
+        {/* spacebar row is drawn slightly inset at the bottom of the deck */}
         {/* status LEDs */}
         <circle cx="360" cy="20" r="4" fill="var(--color-lab-green)" className="led" />
         <circle cx="374" cy="20" r="4" fill="var(--color-lab-yellow)" opacity="0.7" />
