@@ -169,7 +169,7 @@ function PrinterPanel() {
       const { downloadAsWord } = await import("../../lib/docx-export");
       await downloadAsWord(title || "Untitled", text, (title || "lab-print").toLowerCase().replace(/[^a-z0-9]+/g, "-"));
       sound.play("success");
-      store.toast("good", "PRINTED", "Word document delivered to your downloads tray.");
+      store.toast("system", "PRINTED", "Word document delivered to your downloads tray.");
     } catch {
       store.toast("warn", "PAPER JAM", "The document could not be generated.");
     } finally {
