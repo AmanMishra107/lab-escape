@@ -65,22 +65,32 @@ function score(b: Cell[], me: Cell): number {
   return s;
 }
 
-function negamax(b: Cell[], depth: number, me: Cell, turn: Cell, alpha: number, beta: number): { s: number; col: number } {
+function minimax(b: Cell[], depth: number, me: Cell, turn: Cell, alpha: number, beta: number): { s: number; col: number } {
   const w = winnerOf(b);
-  if (w || depth === 0) return { s: w ? score(b, me) : score(b, me), col: -1 };
-  let best = { s: -Infinity, col: validCols(b)[0] ?? -1 };
-  for (const c of validCols(b)) {
-    const nb = drop(b, c, turn)!;
-    const child = negamax(nb, depth - 1, me, turn === 1 ? 2 : 1, -beta, -alpha);
-    const s = turn === me ? -(-child.s) : child.s;
-    const val = turn === me ? child.s * (depth % 2 === 0 ? 1 : 1) : child.s;
-    void s;
-    const v = turn === me ? val : -val;
-    if (v > best.s) best = { s: v, col: c };
-    alpha = Math.max(alpha, v);
+  if (w === me) return { s: 10000 + depth, col: -1 };
+  if (w && w !== "draw") return { s: -10000 - depth, col: -1 };
+  if (w === "draw") return { s: 0, col: -1 };
+  if (depth === 0) return { s: score(b, me), col: -1 };
+  const cols = validCols(b);
+  let bestCol = cols[0] ?? -1;
+  if (turn === me) {
+    let best = -Infinity;
+    for (const c of cols) {
+      const v = minimax(drop(b, c, turn)!, depth - 1, me, me === 1 ? 2 : 1, alpha, beta).s;
+      if (v > best) { best = v; bestCol = c; }
+      alpha = Math.max(alpha, v);
+      if (alpha >= beta) break;
+    }
+    return { s: best, col: bestCol };
+  }
+  let best = Infinity;
+  for (const c of cols) {
+    const v = minimax(drop(b, c, turn)!, depth - 1, me, me, alpha, beta).s;
+    if (v < best) { best = v; bestCol = c; }
+    beta = Math.min(beta, v);
     if (alpha >= beta) break;
   }
-  return best;
+  return { s: best, col: bestCol };
 }
 
 function botMove(b: Cell[], level: BotLevel, me: Cell): number {
@@ -92,7 +102,7 @@ function botMove(b: Cell[], level: BotLevel, me: Cell): number {
   if (level === "easy") return cols[Math.floor(Math.random() * cols.length)]!;
   if (level === "normal" && Math.random() < 0.35) return cols[Math.floor(Math.random() * cols.length)]!;
   const depth = level === "hard" ? 5 : 3;
-  const res = negamax(b, depth, me, me, -Infinity, Infinity);
+  const res = minimax(b, depth, me, me, -Infinity, Infinity);
   return res.col >= 0 ? res.col : cols[0]!;
 }
 
