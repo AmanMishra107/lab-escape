@@ -163,10 +163,10 @@ export function LabArt({ phase, boot }: { phase: Phase; boot: boolean }) {
       </g>
       {/* keyboard + mouse */}
       <g transform="translate(566 592)">
-        <ellipse cx="200" cy="92" rx="230" ry="14" fill="var(--color-lab-ink)" opacity="0.16" />
+        <ellipse cx="200" cy="112" rx="230" ry="14" fill="var(--color-lab-ink)" opacity="0.16" />
         {/* body */}
-        <rect x="0" y="0" width="392" height="96" rx="10" fill="url(#plasticGrad)" stroke="var(--color-lab-ink)" strokeWidth="6" />
-        <rect x="10" y="8" width="372" height="80" rx="6" fill="var(--color-lab-ink)" opacity="0.12" />
+        <rect x="0" y="0" width="392" height="116" rx="10" fill="url(#plasticGrad)" stroke="var(--color-lab-ink)" strokeWidth="6" />
+        <rect x="10" y="8" width="372" height="100" rx="6" fill="var(--color-lab-ink)" opacity="0.12" />
         {/* function row */}
         {Array.from({ length: 13 }).map((_, i) => (
           <rect key={`f${i}`} x={18 + i * 28} y={14} width="20" height="12" rx="2" fill="var(--color-muted)" stroke="var(--color-lab-ink)" strokeWidth="2.5" />
@@ -186,7 +186,12 @@ export function LabArt({ phase, boot }: { phase: Phase; boot: boolean }) {
         {/* modifiers + spacebar */}
         <rect x="18" y="70" width="14" height="14" rx="3" fill="var(--color-muted)" stroke="var(--color-lab-ink)" strokeWidth="2.5" />
         <rect x="344" y="70" width="30" height="14" rx="3" fill="var(--color-muted)" stroke="var(--color-lab-ink)" strokeWidth="2.5" />
-        {/* spacebar row is drawn slightly inset at the bottom of the deck */}
+        {/* spacebar row */}
+        <rect x="18" y="90" width="34" height="14" rx="3" fill="var(--color-muted)" stroke="var(--color-lab-ink)" strokeWidth="2.5" />
+        <rect x="56" y="90" width="26" height="14" rx="3" fill="var(--color-muted)" stroke="var(--color-lab-ink)" strokeWidth="2.5" />
+        <rect x="86" y="90" width="200" height="14" rx="4" fill="var(--color-lab-paper)" stroke="var(--color-lab-ink)" strokeWidth="2.5" />
+        <rect x="290" y="90" width="26" height="14" rx="3" fill="var(--color-muted)" stroke="var(--color-lab-ink)" strokeWidth="2.5" />
+        <rect x="320" y="90" width="54" height="14" rx="3" fill="var(--color-muted)" stroke="var(--color-lab-ink)" strokeWidth="2.5" />
         {/* status LEDs */}
         <circle cx="360" cy="20" r="4" fill="var(--color-lab-green)" className="led" />
         <circle cx="374" cy="20" r="4" fill="var(--color-lab-yellow)" opacity="0.7" />
