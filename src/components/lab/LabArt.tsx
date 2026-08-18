@@ -10,7 +10,7 @@ export function LabArt({ phase, boot }: { phase: Phase; boot: boolean }) {
     <svg
       viewBox="0 0 1600 900"
       className="absolute inset-0 h-full w-full"
-      preserveAspectRatio="xMidYMid slice"
+      preserveAspectRatio="xMidYMid meet"
       aria-hidden="true"
       role="presentation"
     >
