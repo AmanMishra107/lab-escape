@@ -5,9 +5,12 @@ export interface GameMeta {
   name: string;
   tagline: string;
   difficulty: "easy" | "medium" | "hard";
-  category: "arcade" | "logic" | "reflex" | "skill";
+  category: "arcade" | "logic" | "reflex" | "skill" | "versus";
   xpMultiplier: number;
   controls: string;
+  /** Supports bot opponent + online friend match */
+  multiplayer?: boolean;
+  rules: string[];
 }
 
 export const GAMES: GameMeta[] = [
@@ -19,6 +22,11 @@ export const GAMES: GameMeta[] = [
     category: "arcade",
     xpMultiplier: 0.5,
     controls: "Arrows / WASD / swipe",
+    rules: [
+      "Eat pellets to grow longer and score.",
+      "Speed increases the longer you survive.",
+      "Hitting a wall or your own tail ends the run.",
+    ],
   },
   {
     id: "minesweeper",
@@ -28,6 +36,11 @@ export const GAMES: GameMeta[] = [
     category: "logic",
     xpMultiplier: 0.4,
     controls: "Click / long-press to flag",
+    rules: [
+      "Numbers show how many mines touch that cell.",
+      "Right click (or long-press) plants a flag.",
+      "Clear every safe cell to win. One mine = game over.",
+    ],
   },
   {
     id: "reaction",
@@ -37,6 +50,7 @@ export const GAMES: GameMeta[] = [
     category: "reflex",
     xpMultiplier: 1,
     controls: "Click / tap / space",
+    rules: ["Wait for the panel to turn green.", "Click as fast as you can.", "Clicking early voids the attempt."],
   },
   {
     id: "memory",
@@ -46,6 +60,11 @@ export const GAMES: GameMeta[] = [
     category: "logic",
     xpMultiplier: 1,
     controls: "Click / tap cells",
+    rules: [
+      "Watch the flashing sequence of cells.",
+      "Repeat it back in the same order.",
+      "Each round adds one more step.",
+    ],
   },
   {
     id: "typing",
@@ -55,6 +74,7 @@ export const GAMES: GameMeta[] = [
     category: "skill",
     xpMultiplier: 0.8,
     controls: "Keyboard",
+    rules: ["Type the shown sentence exactly.", "Score = words per minute × accuracy.", "Typos cost you accuracy."],
   },
   {
     id: "tictactoe",
@@ -64,6 +84,7 @@ export const GAMES: GameMeta[] = [
     category: "logic",
     xpMultiplier: 1,
     controls: "Click / tap",
+    rules: ["Place three in a row to win.", "You are X, the bot is O.", "Impossible mode is unbeatable — draw is a win."],
   },
   {
     id: "aim",
@@ -73,6 +94,7 @@ export const GAMES: GameMeta[] = [
     category: "reflex",
     xpMultiplier: 0.7,
     controls: "Mouse / touch",
+    rules: ["Hit as many targets as possible before time runs out.", "Targets shrink as you improve.", "Misses hurt accuracy."],
   },
   {
     id: "flappy",
@@ -82,6 +104,7 @@ export const GAMES: GameMeta[] = [
     category: "arcade",
     xpMultiplier: 3,
     controls: "Space / click / tap",
+    rules: ["Tap to flap upward, gravity does the rest.", "Pass through pipe gaps for points.", "Any contact ends the run."],
   },
   {
     id: "runner",
@@ -91,6 +114,7 @@ export const GAMES: GameMeta[] = [
     category: "arcade",
     xpMultiplier: 0.6,
     controls: "Space / tap to jump",
+    rules: ["Jump over professors and flying assignments.", "Collect coffee for bonus points.", "One hit and the run is over."],
   },
   {
     id: "math",
@@ -100,6 +124,91 @@ export const GAMES: GameMeta[] = [
     category: "skill",
     xpMultiplier: 1.2,
     controls: "Keyboard / on-screen keys",
+    rules: ["Solve each question before the 5s timer runs out.", "Correct answers speed things up.", "Three misses ends the round."],
+  },
+  {
+    id: "connect4",
+    name: "CONNECT4.BAT",
+    tagline: "Four in a row. Infinite trash talk.",
+    difficulty: "medium",
+    category: "versus",
+    xpMultiplier: 1.4,
+    multiplayer: true,
+    controls: "Click a column",
+    rules: [
+      "Players alternate dropping discs into a 7×6 grid.",
+      "Discs fall to the lowest free slot in that column.",
+      "First to line up four — horizontal, vertical or diagonal — wins.",
+      "Full board with no line = draw.",
+      "ONLINE: share the 4-letter room code with a friend. BOT: pick a difficulty.",
+    ],
+  },
+  {
+    id: "dots",
+    name: "DOTSBOX.EXE",
+    tagline: "Draw lines. Steal boxes. Lose friends.",
+    difficulty: "medium",
+    category: "versus",
+    xpMultiplier: 1.3,
+    multiplayer: true,
+    controls: "Click a line between dots",
+    rules: [
+      "Take turns drawing one line between two adjacent dots.",
+      "Completing the 4th side of a box claims it and scores 1 point.",
+      "Claiming a box gives you another turn immediately.",
+      "When all lines are drawn, the most boxes wins.",
+      "ONLINE: share the room code. BOT: greedy AI that punishes free boxes.",
+    ],
+  },
+  {
+    id: "rps",
+    name: "RPS.DUEL",
+    tagline: "Best of five. Pure psychological warfare.",
+    difficulty: "easy",
+    category: "versus",
+    xpMultiplier: 1,
+    multiplayer: true,
+    controls: "Click rock / paper / scissors",
+    rules: [
+      "Both players pick secretly each round; reveals are simultaneous.",
+      "Rock beats scissors, scissors beats paper, paper beats rock.",
+      "Same pick = draw, round replays.",
+      "First to 3 round wins takes the match.",
+      "The bot reads your pattern, so don't be predictable.",
+    ],
+  },
+  {
+    id: "wordduel",
+    name: "WORDDUEL.EXE",
+    tagline: "Five letters between you and glory.",
+    difficulty: "hard",
+    category: "versus",
+    xpMultiplier: 1.6,
+    multiplayer: true,
+    controls: "Keyboard, Enter to guess",
+    rules: [
+      "Both players race to guess the SAME hidden 5-letter word.",
+      "Green = right letter, right spot. Yellow = right letter, wrong spot.",
+      "Six guesses each. First correct guess wins the duel.",
+      "If both run out, it's a draw.",
+      "Bot mode: the bot solves at a human-ish pace based on difficulty.",
+    ],
+  },
+  {
+    id: "reflexduel",
+    name: "REFLEX.DUEL",
+    tagline: "Two thumbs enter. One thumb leaves.",
+    difficulty: "easy",
+    category: "versus",
+    xpMultiplier: 1.1,
+    multiplayer: true,
+    controls: "Click / tap / space when GREEN",
+    rules: [
+      "Wait for the panel to flash GREEN after a random delay.",
+      "First player to hit it wins the round.",
+      "Hitting early instantly loses that round.",
+      "First to 3 round wins takes the duel.",
+    ],
   },
 ];
 
