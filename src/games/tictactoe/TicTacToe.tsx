@@ -19,7 +19,10 @@ const LINES = [
 ];
 
 function winner(b: Mark[]): Mark | "draw" | null {
-  for (const [a, c, d] of LINES) if (b[a!] && b[a!] === b[c!] && b[a!] === b[d!]) return b[a!];
+  for (const [a, c, d] of LINES) {
+    const v = b[a!] ?? null;
+    if (v && v === b[c!] && v === b[d!]) return v;
+  }
   return b.every(Boolean) ? "draw" : null;
 }
 
