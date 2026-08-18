@@ -129,9 +129,13 @@ export function LabArt({ phase, boot }: { phase: Phase; boot: boolean }) {
 
       {/* ---------- monitor / computer ---------- */}
       <g transform="translate(616 336)">
-        <rect x="126" y="252" width="120" height="26" fill="var(--color-lab-paper)" stroke="var(--color-lab-ink)" strokeWidth="6" />
-        <rect x="150" y="216" width="72" height="44" fill="var(--color-lab-paper)" stroke="var(--color-lab-ink)" strokeWidth="6" />
-        <rect x="0" y="0" width="372" height="230" rx="10" fill="var(--color-lab-paper)" stroke="var(--color-lab-ink)" strokeWidth="9" />
+        {/* stand + base with contact shadow */}
+        <ellipse cx="186" cy="286" rx="150" ry="16" fill="var(--color-lab-ink)" opacity="0.18" />
+        <rect x="126" y="252" width="120" height="26" rx="6" fill="url(#plasticGrad)" stroke="var(--color-lab-ink)" strokeWidth="6" />
+        <rect x="150" y="216" width="72" height="44" fill="url(#plasticGrad)" stroke="var(--color-lab-ink)" strokeWidth="6" />
+        {/* bezel */}
+        <rect x="0" y="0" width="372" height="230" rx="14" fill="url(#plasticGrad)" stroke="var(--color-lab-ink)" strokeWidth="9" />
+        <rect x="14" y="12" width="344" height="188" rx="8" fill="var(--color-lab-ink)" opacity="0.85" />
         <rect x="26" y="24" width="320" height="164" fill="url(#screenGrad)" stroke="var(--color-lab-ink)" strokeWidth="6" />
         {boot ? (
           <g fontFamily="monospace" fontSize="15" fill="var(--color-screen-glow)">
@@ -147,22 +151,54 @@ export function LabArt({ phase, boot }: { phase: Phase; boot: boolean }) {
             <rect x="46" y="124" width="86" height="42" fill="var(--color-lab-yellow)" stroke="var(--color-lab-ink)" strokeWidth="4" />
           </g>
         )}
+        {/* screen sheen */}
+        <path d="M26 24 L150 24 L52 188 L26 188 Z" fill="var(--color-lab-paper)" opacity="0.07" />
         <circle cx="340" cy="208" r="7" fill={chaotic ? "var(--color-lab-red)" : "var(--color-lab-green)"} className="led" />
         {/* the single dead pixel */}
         <rect x="332" y="180" width="3" height="3" fill="var(--color-lab-ink)" />
       </g>
       {/* keyboard + mouse */}
-      <g transform="translate(596 604)">
-        <rect x="0" y="0" width="330" height="70" rx="6" fill="var(--color-lab-paper)" stroke="var(--color-lab-ink)" strokeWidth="6" />
-        {Array.from({ length: 11 }).map((_, i) => (
-          <rect key={i} x={16 + i * 28} y={14} width="20" height="16" fill="var(--color-muted)" stroke="var(--color-lab-ink)" strokeWidth="3" />
+      <g transform="translate(566 592)">
+        <ellipse cx="200" cy="92" rx="230" ry="14" fill="var(--color-lab-ink)" opacity="0.16" />
+        {/* body */}
+        <rect x="0" y="0" width="392" height="96" rx="10" fill="url(#plasticGrad)" stroke="var(--color-lab-ink)" strokeWidth="6" />
+        <rect x="10" y="8" width="372" height="80" rx="6" fill="var(--color-lab-ink)" opacity="0.12" />
+        {/* function row */}
+        {Array.from({ length: 13 }).map((_, i) => (
+          <rect key={`f${i}`} x={18 + i * 28} y={14} width="20" height="12" rx="2" fill="var(--color-muted)" stroke="var(--color-lab-ink)" strokeWidth="2.5" />
         ))}
-        <rect x="76" y="42" width="180" height="16" fill="var(--color-muted)" stroke="var(--color-lab-ink)" strokeWidth="3" />
-        <g transform="translate(368 8)">
-          <rect width="52" height="76" rx="24" fill="var(--color-lab-paper)" stroke="var(--color-lab-ink)" strokeWidth="6" />
-          <path d="M26 6 V34" stroke="var(--color-lab-ink)" strokeWidth="5" />
+        {/* number row */}
+        {Array.from({ length: 13 }).map((_, i) => (
+          <rect key={`n${i}`} x={18 + i * 28} y={30} width="22" height="16" rx="3" fill="var(--color-lab-paper)" stroke="var(--color-lab-ink)" strokeWidth="2.5" />
+        ))}
+        {/* qwerty row */}
+        {Array.from({ length: 12 }).map((_, i) => (
+          <rect key={`q${i}`} x={26 + i * 28} y={50} width="22" height="16" rx="3" fill="var(--color-lab-paper)" stroke="var(--color-lab-ink)" strokeWidth="2.5" />
+        ))}
+        {/* home row */}
+        {Array.from({ length: 11 }).map((_, i) => (
+          <rect key={`h${i}`} x={34 + i * 28} y={70} width="22" height="14" rx="3" fill="var(--color-lab-paper)" stroke="var(--color-lab-ink)" strokeWidth="2.5" />
+        ))}
+        {/* modifiers + spacebar */}
+        <rect x="18" y="70" width="14" height="14" rx="3" fill="var(--color-muted)" stroke="var(--color-lab-ink)" strokeWidth="2.5" />
+        <rect x="344" y="70" width="30" height="14" rx="3" fill="var(--color-muted)" stroke="var(--color-lab-ink)" strokeWidth="2.5" />
+        <rect x="130" y="70" width="0" height="0" />
+        <rect x="120" y="86" width="0" height="0" />
+        <rect x="118" y="70" width="0" height="0" />
+        <rect x="120" y="70" width="0" height="0" />
+        <rect x="112" y="70" width="0" height="0" />
+        {/* status LEDs */}
+        <circle cx="360" cy="20" r="4" fill="var(--color-lab-green)" className="led" />
+        <circle cx="374" cy="20" r="4" fill="var(--color-lab-yellow)" opacity="0.7" />
+        {/* mouse */}
+        <g transform="translate(416 14)">
+          <ellipse cx="30" cy="88" rx="34" ry="10" fill="var(--color-lab-ink)" opacity="0.16" />
+          <rect width="60" height="86" rx="28" fill="url(#plasticGrad)" stroke="var(--color-lab-ink)" strokeWidth="6" />
+          <path d="M30 6 V36" stroke="var(--color-lab-ink)" strokeWidth="5" />
+          <rect x="25" y="16" width="10" height="16" rx="5" fill="var(--color-lab-ink)" opacity="0.6" />
         </g>
       </g>
+
       {/* cpu tower */}
       <g transform="translate(1120 452)">
         <rect width="120" height="212" fill="var(--color-muted)" stroke="var(--color-lab-ink)" strokeWidth="7" />
