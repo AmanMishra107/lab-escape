@@ -32,12 +32,7 @@ export type GameId =
   | "aim"
   | "flappy"
   | "runner"
-  | "math"
-  | "connect4"
-  | "dots"
-  | "rps"
-  | "wordduel"
-  | "reflexduel";
+  | "math";
 
 export interface GameResult {
   score: number;
