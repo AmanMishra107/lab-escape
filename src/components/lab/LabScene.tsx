@@ -25,10 +25,11 @@ export function LabScene() {
   }, [cx, cy, zoom, reduced]);
 
   return (
-    <div className="absolute inset-0 overflow-hidden bg-wall">
+    <div className="absolute inset-0 grid place-items-center overflow-hidden bg-wall">
       <div
         ref={stageRef}
-        className="absolute inset-0 transition-transform ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform"
+        className="relative aspect-[16/9] max-h-full max-w-full min-h-0 min-w-0 shrink-0 transition-transform ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform"
+        style={{ width: "min(100%, calc(100dvh * 16 / 9))" }}
       >
         <LabArt phase={phase} boot={!focus} />
 
@@ -48,8 +49,7 @@ export function LabScene() {
               className="group absolute border-3 border-transparent transition-[border-color,transform] duration-150 hover:border-lab-ink focus-visible:border-lab-ink"
             >
               <span
-                className="mono-label pointer-events-none absolute -top-1 left-0 hidden -translate-y-full whitespace-nowrap border-2 border-lab-ink bg-lab-yellow px-1.5 py-0.5 text-lab-ink group-hover:block group-focus-visible:block"
-                style={{ fontSize: `${Math.max(6, 11 / 1)}px` }}
+                className="mono-label pointer-events-none absolute -top-1 left-0 hidden -translate-y-full whitespace-nowrap border-2 border-lab-ink bg-lab-yellow px-1.5 py-0.5 text-[10px] text-lab-ink group-hover:block group-focus-visible:block"
               >
                 {o.label}
               </span>
@@ -63,3 +63,4 @@ export function LabScene() {
     </div>
   );
 }
+

@@ -144,37 +144,93 @@ function DrawerPanel() {
 }
 
 function PrinterPanel() {
+  const [title, setTitle] = useState("PRACTICAL FILE");
+  const [text, setText] = useState("");
   const [prints, setPrints] = useState<string[]>([]);
-  const pool = [
-    "PRACTICAL FILE — page 1 of 47",
-    "ATTENDANCE REPORT: emotionally reviewed",
-    "STOP",
-    "test page (1998)",
-    "ERROR: paper jam in tray that does not exist",
-  ];
+  const [busy, setBusy] = useState(false);
+  const [ready, setReady] = useState(false);
+
+  const doPrint = () => {
+    if (!text.trim()) return;
+    sound.play("pop");
+    store.interacted();
+    const next = [...prints, `${title || "UNTITLED"} — ${text.trim().split(/\s+/).length} words queued`];
+    setPrints(next.slice(-6));
+    setReady(true);
+    if (next.length >= 3) {
+      store.findEgg("printer_spam");
+      store.giveItem("note");
+    }
+  };
+
+  const doDownload = async () => {
+    setBusy(true);
+    try {
+      const { downloadAsWord } = await import("../../lib/docx-export");
+      await downloadAsWord(title || "Untitled", text, (title || "lab-print").toLowerCase().replace(/[^a-z0-9]+/g, "-"));
+      sound.play("success");
+      store.toast("system", "PRINTED", "Word document delivered to your downloads tray.");
+    } catch {
+      store.toast("warn", "PAPER JAM", "The document could not be generated.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
-    <div className="flex h-full flex-col gap-3">
-      <BrutButton
-        variant="warn"
-        onClick={() => {
-          sound.play("pop");
-          store.interacted();
-          const next = [...prints, pool[Math.floor(Math.random() * pool.length)]!];
-          setPrints(next.slice(-6));
-          if (next.length >= 3) {
-            store.findEgg("printer_spam");
-            store.giveItem("note");
-          }
-        }}
-      >
-        PRESS PRINT
-      </BrutButton>
-      <div className="brut-sm scroll-thin flex-1 overflow-y-auto bg-background p-3 font-mono text-sm">
-        {prints.length === 0 ? "> tray empty. printer idle. printer waiting." : prints.map((p, i) => <div key={i}>&gt; {p}</div>)}
-      </div>
+    <div className="grid h-full min-h-0 gap-3 lg:grid-cols-2">
+      <Panel title="PASTE CONTENT" className="flex min-h-0 flex-col">
+        <input
+          aria-label="Document title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value.slice(0, 60))}
+          placeholder="Document title"
+          className="brut-sm mb-2 w-full bg-background px-2 py-1 font-mono text-sm outline-none"
+        />
+        <textarea
+          aria-label="Content to print"
+          value={text}
+          onChange={(e) => {
+            setText(e.target.value);
+            setReady(false);
+          }}
+          placeholder="Paste or type anything here — notes, code, an assignment you did not write…"
+          className="brut-sm scroll-thin min-h-40 w-full flex-1 resize-none bg-background p-2 font-mono text-sm outline-none"
+        />
+        <div className="mt-2 flex flex-wrap gap-2">
+          <BrutButton variant="warn" onClick={doPrint}>
+            PRESS PRINT
+          </BrutButton>
+          {ready && (
+            <BrutButton variant="go" onClick={doDownload} disabled={busy}>
+              {busy ? "SPOOLING…" : "DOWNLOAD .DOCX"}
+            </BrutButton>
+          )}
+          {text && (
+            <BrutButton
+              variant="danger"
+              onClick={() => {
+                setText("");
+                setReady(false);
+              }}
+            >
+              CLEAR
+            </BrutButton>
+          )}
+        </div>
+      </Panel>
+      <Panel title="PRINT QUEUE" className="flex min-h-0 flex-col">
+        <div className="scroll-thin min-h-0 flex-1 overflow-y-auto bg-background p-3 font-mono text-sm">
+          {prints.length === 0
+            ? "> tray empty. printer idle. printer waiting."
+            : prints.map((p, i) => <div key={i}>&gt; {p}</div>)}
+        </div>
+        <p className="mono-label mt-2 opacity-70">Printer 2 has no ink. It exports Word documents instead.</p>
+      </Panel>
     </div>
   );
 }
+
 
 function TrashPanel() {
   const [digs, setDigs] = useState(0);
