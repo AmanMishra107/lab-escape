@@ -1,7 +1,7 @@
-import { lazy, type LazyExoticComponent } from "react";
+import { lazy, type ComponentType, type LazyExoticComponent } from "react";
 import type { GameId } from "../systems/types";
 
-export const GAME_COMPONENTS: Record<GameId, LazyExoticComponent<() => JSX.Element>> = {
+export const GAME_COMPONENTS: Record<GameId, LazyExoticComponent<ComponentType>> = {
   snake: lazy(() => import("./snake/Snake")),
   minesweeper: lazy(() => import("./minesweeper/Minesweeper")),
   reaction: lazy(() => import("./reaction/Reaction")),

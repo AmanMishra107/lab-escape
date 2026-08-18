@@ -8,17 +8,17 @@ interface Props {
 }
 
 export class GameErrorBoundary extends Component<Props, { failed: boolean }> {
-  state = { failed: false };
+  override state = { failed: false };
 
   static getDerivedStateFromError() {
     return { failed: true };
   }
 
-  componentDidCatch(error: Error, info: ErrorInfo) {
+  override componentDidCatch(error: Error, info: ErrorInfo) {
     if (import.meta.env.DEV) console.error(error, info);
   }
 
-  render() {
+  override render() {
     if (!this.state.failed) return this.props.children;
     return (
       <div className="brut flex h-full flex-col items-center justify-center gap-3 bg-lab-yellow p-6 text-center">
