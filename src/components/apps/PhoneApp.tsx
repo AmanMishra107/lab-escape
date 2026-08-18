@@ -68,6 +68,11 @@ export function PhoneApp() {
         ))}
       </div>
 
+      {active === LIVE_ID ? (
+        <div className="flex min-h-0 flex-1 flex-col">
+          <LiveChat />
+        </div>
+      ) : (
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="mb-2 flex items-center justify-between">
           <h3 className="font-display text-xl">{contact.name}</h3>
