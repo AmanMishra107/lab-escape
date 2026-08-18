@@ -1,106 +1,41 @@
 import { useState } from "react";
-import { CONTACTS, type ChatMessage } from "../../data/messages";
-import { store } from "../../systems/GameState";
 import { sound } from "../../systems/SoundSystem";
+import { BakchodBot } from "../live/BakchodBot";
 import { LiveChat } from "../live/LiveChat";
-import { BrutButton, Tag } from "../ui/brut";
 
-const LIVE_ID = "__live__";
+const TABS = [
+  { id: "live", name: "LAB CHAT ● LIVE", subtitle: "real friends, real time" },
+  { id: "bot", name: "BAKCHOD BOT ● AI", subtitle: "code doubts + timepass" },
+] as const;
+
+type TabId = (typeof TABS)[number]["id"];
 
 export function PhoneApp() {
-  const [active, setActive] = useState(LIVE_ID);
-  const [extra, setExtra] = useState<Record<string, ChatMessage[]>>({});
-  const contact = CONTACTS.find((c) => c.id === active) ?? CONTACTS[0]!;
-  const thread = [...contact.messages, ...(extra[active] ?? [])];
-
-  const send = (text: string) => {
-    sound.play("pop");
-    store.interacted();
-    store.reduceBoredom(2);
-    const mine: ChatMessage = { from: "me", text, time: "now" };
-    const reply: ChatMessage = {
-      from: "them",
-      text:
-        contact.id === "unknown"
-          ? "you looked, didn't you"
-          : contact.id === "professor"
-            ? "Interesting."
-            : ["k", "bro", "same", "send it na", "lol", "sir will kill us"][Math.floor(Math.random() * 6)]!,
-      time: "now",
-    };
-    setExtra((e) => ({ ...e, [active]: [...(e[active] ?? []), mine, reply] }));
-    if (contact.id === "unknown") {
-      store.findEgg("phone_unknown");
-      store.glitchBurst(0.8);
-    }
-  };
+  const [active, setActive] = useState<TabId>("live");
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-2 sm:flex-row">
       <div className="flex gap-2 overflow-x-auto border-b-3 border-lab-ink pb-2 sm:w-52 sm:flex-col sm:overflow-y-auto sm:border-b-0 sm:border-r-3 sm:pb-0 sm:pr-2">
-        <button
-          onClick={() => {
-            sound.play("click");
-            setActive(LIVE_ID);
-          }}
-          className={`brut-sm mono-label shrink-0 px-2 py-2 text-left ${
-            active === LIVE_ID ? "bg-lab-ink text-lab-paper" : "bg-lab-green text-lab-ink"
-          }`}
-        >
-          <span className="block">LAB CHAT ● LIVE</span>
-          <span className="block text-[9px] opacity-70 normal-case">real friends, real time</span>
-        </button>
-        {CONTACTS.map((c) => (
+        {TABS.map((t) => (
           <button
-            key={c.id}
+            key={t.id}
             onClick={() => {
               sound.play("click");
-              setActive(c.id);
-              if (c.secret) store.findEgg("phone_unknown");
+              setActive(t.id);
             }}
             className={`brut-sm mono-label shrink-0 px-2 py-2 text-left ${
-              c.id === active ? "bg-lab-ink text-lab-paper" : "bg-card"
+              active === t.id ? "bg-lab-ink text-lab-paper" : "bg-lab-green text-lab-ink"
             }`}
           >
-            <span className="block">{c.name}</span>
-            <span className="block text-[9px] opacity-70 normal-case">{c.subtitle}</span>
+            <span className="block">{t.name}</span>
+            <span className="block text-[9px] normal-case opacity-70">{t.subtitle}</span>
           </button>
         ))}
       </div>
 
-      {active === LIVE_ID ? (
-        <div className="flex min-h-0 flex-1 flex-col">
-          <LiveChat />
-        </div>
-      ) : (
       <div className="flex min-h-0 flex-1 flex-col">
-        <div className="mb-2 flex items-center justify-between">
-          <h3 className="font-display text-xl">{contact.name}</h3>
-          {contact.secret && <Tag tone="red">UNKNOWN</Tag>}
-        </div>
-        <div className="scroll-thin flex-1 space-y-2 overflow-y-auto border-3 border-lab-ink bg-background p-3">
-          {thread.map((m, i) => (
-            <div key={i} className={m.from === "me" ? "flex justify-end" : "flex justify-start"}>
-              <p
-                className={`brut-sm max-w-[80%] px-2 py-1 text-sm ${
-                  m.from === "me" ? "bg-lab-green" : "bg-card"
-                }`}
-              >
-                {m.text}
-                <span className="mono-label ml-2 opacity-60">{m.time}</span>
-              </p>
-            </div>
-          ))}
-        </div>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {contact.replies.map((r) => (
-            <BrutButton key={r} className="text-[10px]" onClick={() => send(r)}>
-              {r}
-            </BrutButton>
-          ))}
-        </div>
+        {active === "live" ? <LiveChat /> : <BakchodBot />}
       </div>
-      )}
     </div>
   );
 }
