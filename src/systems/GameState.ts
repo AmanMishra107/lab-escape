@@ -9,7 +9,7 @@ export interface Toast {
   id: number;
   kind: "achievement" | "system" | "egg" | "warn" | "xp";
   title: string;
-  body?: string;
+  body?: string | undefined;
 }
 
 export interface Runtime {
