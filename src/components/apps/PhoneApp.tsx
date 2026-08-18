@@ -38,6 +38,18 @@ export function PhoneApp() {
   return (
     <div className="flex h-full min-h-0 flex-col gap-2 sm:flex-row">
       <div className="flex gap-2 overflow-x-auto border-b-3 border-lab-ink pb-2 sm:w-52 sm:flex-col sm:overflow-y-auto sm:border-b-0 sm:border-r-3 sm:pb-0 sm:pr-2">
+        <button
+          onClick={() => {
+            sound.play("click");
+            setActive(LIVE_ID);
+          }}
+          className={`brut-sm mono-label shrink-0 px-2 py-2 text-left ${
+            active === LIVE_ID ? "bg-lab-ink text-lab-paper" : "bg-lab-green text-lab-ink"
+          }`}
+        >
+          <span className="block">LAB CHAT ● LIVE</span>
+          <span className="block text-[9px] opacity-70 normal-case">real friends, real time</span>
+        </button>
         {CONTACTS.map((c) => (
           <button
             key={c.id}
