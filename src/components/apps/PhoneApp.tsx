@@ -2,12 +2,15 @@ import { useState } from "react";
 import { CONTACTS, type ChatMessage } from "../../data/messages";
 import { store } from "../../systems/GameState";
 import { sound } from "../../systems/SoundSystem";
+import { LiveChat } from "../live/LiveChat";
 import { BrutButton, Tag } from "../ui/brut";
 
+const LIVE_ID = "__live__";
+
 export function PhoneApp() {
-  const [active, setActive] = useState(CONTACTS[0]!.id);
+  const [active, setActive] = useState(LIVE_ID);
   const [extra, setExtra] = useState<Record<string, ChatMessage[]>>({});
-  const contact = CONTACTS.find((c) => c.id === active)!;
+  const contact = CONTACTS.find((c) => c.id === active) ?? CONTACTS[0]!;
   const thread = [...contact.messages, ...(extra[active] ?? [])];
 
   const send = (text: string) => {
@@ -35,6 +38,18 @@ export function PhoneApp() {
   return (
     <div className="flex h-full min-h-0 flex-col gap-2 sm:flex-row">
       <div className="flex gap-2 overflow-x-auto border-b-3 border-lab-ink pb-2 sm:w-52 sm:flex-col sm:overflow-y-auto sm:border-b-0 sm:border-r-3 sm:pb-0 sm:pr-2">
+        <button
+          onClick={() => {
+            sound.play("click");
+            setActive(LIVE_ID);
+          }}
+          className={`brut-sm mono-label shrink-0 px-2 py-2 text-left ${
+            active === LIVE_ID ? "bg-lab-ink text-lab-paper" : "bg-lab-green text-lab-ink"
+          }`}
+        >
+          <span className="block">LAB CHAT ● LIVE</span>
+          <span className="block text-[9px] opacity-70 normal-case">real friends, real time</span>
+        </button>
         {CONTACTS.map((c) => (
           <button
             key={c.id}
@@ -53,6 +68,11 @@ export function PhoneApp() {
         ))}
       </div>
 
+      {active === LIVE_ID ? (
+        <div className="flex min-h-0 flex-1 flex-col">
+          <LiveChat />
+        </div>
+      ) : (
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="mb-2 flex items-center justify-between">
           <h3 className="font-display text-xl">{contact.name}</h3>
@@ -80,6 +100,7 @@ export function PhoneApp() {
           ))}
         </div>
       </div>
+      )}
     </div>
   );
 }
