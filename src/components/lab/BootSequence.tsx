@@ -36,8 +36,8 @@ export function BootSequence({ onDone }: { onDone: () => void }) {
   }, []);
 
   const enter = () => {
-    sound.resume();
     sound.play("open");
+    sound.startAmbience();
     store.startSession();
     onDone();
   };
