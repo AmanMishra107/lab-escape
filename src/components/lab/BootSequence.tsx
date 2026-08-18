@@ -57,7 +57,13 @@ export function BootSequence({ onDone }: { onDone: () => void }) {
         >
           ENTER THE LAB
         </BrutButton>
-        <button className="mono-label text-lab-paper/60 underline" onClick={() => setShown(LINES) || setReady(true)}>
+        <button
+          className="mono-label text-lab-paper/60 underline"
+          onClick={() => {
+            setShown(LINES);
+            setReady(true);
+          }}
+        >
           skip
         </button>
       </div>
