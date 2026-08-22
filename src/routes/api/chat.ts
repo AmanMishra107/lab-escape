@@ -1,6 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { convertToModelMessages, streamText, type UIMessage } from "ai";
-import { createLovableAiGatewayProvider } from "@/lib/ai-gateway.server";
+import {
+  convertToModelMessages,
+  createUIMessageStreamResponse,
+  streamText,
+  type UIMessage,
+} from "ai";
+import { createGroqProvider } from "@/lib/ai-gateway.server";
 
 const SYSTEM_PROMPT = `You are "BAKCHOD BOT", the unofficial lab assistant inside a college lab simulator called LAB ESCAPE.
 
@@ -20,24 +25,59 @@ export const Route = createFileRoute("/api/chat")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const { messages } = (await request.json()) as ChatRequestBody;
-        if (!Array.isArray(messages)) {
-          return new Response("Messages are required", { status: 400 });
+        try {
+          const { messages } = (await request.json()) as ChatRequestBody;
+          if (!Array.isArray(messages)) {
+            return new Response("Messages are required", { status: 400 });
+          }
+
+          const key = process.env["GROQ_API_KEY"];
+          if (!key) {
+            return new Response(
+              "Missing GROQ_API_KEY. Get a free key at https://console.groq.com",
+              { status: 500 },
+            );
+          }
+
+          const groq = createGroqProvider(key);
+          const modelMessages = await convertToModelMessages(messages as UIMessage[]);
+
+          const result = streamText({
+            model: groq("openai/gpt-oss-20b"),
+            system: SYSTEM_PROMPT,
+            messages: modelMessages,
+          });
+
+          // Transform fullStream to match @ai-sdk/react (v4) UIMessageChunk schema:
+          // 1. Map `text` to `delta` on text-delta events
+          // 2. Ignore reasoning-* events
+          const uiStream = result.fullStream.pipeThrough(
+            new TransformStream({
+              transform(chunk: any, controller) {
+                if (chunk.type === "text-delta") {
+                  controller.enqueue({
+                    type: "text-delta",
+                    id: chunk.id || "txt-0",
+                    delta: chunk.delta ?? chunk.text ?? "",
+                  });
+                } else if (
+                  chunk.type !== "reasoning-start" &&
+                  chunk.type !== "reasoning-delta" &&
+                  chunk.type !== "reasoning-end"
+                ) {
+                  controller.enqueue(chunk);
+                }
+              },
+            }),
+          );
+
+          return createUIMessageStreamResponse({
+            stream: uiStream as any,
+          });
+        } catch (err: any) {
+          console.error("BakchodBot Error:", err);
+          return new Response(err?.message || "An error occurred", { status: 500 });
         }
-
-        const key = process.env["LOVABLE_API_KEY"];
-        if (!key) return new Response("Missing LOVABLE_API_KEY", { status: 500 });
-
-        const gateway = createLovableAiGatewayProvider(key);
-        const result = streamText({
-          model: gateway("google/gemini-3.7-flash"),
-          system: SYSTEM_PROMPT,
-          messages: await convertToModelMessages(messages as UIMessage[]),
-        });
-
-        return result.toUIMessageStreamResponse({
-          originalMessages: messages as UIMessage[],
-        });
       },
     },
   },

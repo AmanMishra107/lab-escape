@@ -54,25 +54,25 @@
 
 :root {
   --radius: 0px;
-  --lab-paper: oklch(0.955 0.014 92);
-  --lab-ink: oklch(0.17 0.006 285);
-  --lab-red: oklch(0.63 0.23 27);
-  --lab-yellow: oklch(0.88 0.17 92);
-  --lab-green: oklch(0.78 0.2 148);
-  --lab-blue: oklch(0.66 0.17 250);
+  --lab-paper: #e8dfd0;
+  --lab-ink: #1a1a1a;
+  --lab-red: #d94b3a;
+  --lab-yellow: #f4be38;
+  --lab-green: #2a9d8f;
+  --lab-blue: #3a86ff;
 
   --background: var(--lab-paper);
   --foreground: var(--lab-ink);
-  --card: oklch(0.985 0.008 92);
+  --card: #ede4d5;
   --card-foreground: var(--lab-ink);
-  --popover: oklch(0.985 0.008 92);
+  --popover: #ede4d5;
   --popover-foreground: var(--lab-ink);
   --primary: var(--lab-ink);
   --primary-foreground: var(--lab-paper);
-  --secondary: oklch(0.92 0.015 92);
+  --secondary: #ded4c1;
   --secondary-foreground: var(--lab-ink);
-  --muted: oklch(0.9 0.012 92);
-  --muted-foreground: oklch(0.44 0.01 285);
+  --muted: #d6cbba;
+  --muted-foreground: #59554a;
   --accent: var(--lab-yellow);
   --accent-foreground: var(--lab-ink);
   --destructive: var(--lab-red);
@@ -81,39 +81,40 @@
   --input: var(--lab-ink);
   --ring: var(--lab-blue);
 
-  /* illustrated scene */
-  --wall: oklch(0.83 0.05 175);
-  --wall-deep: oklch(0.72 0.06 195);
-  --floor: oklch(0.6 0.07 55);
-  --desk: oklch(0.74 0.09 62);
-  --desk-dark: oklch(0.55 0.08 55);
-  --screen: oklch(0.24 0.03 160);
-  --screen-glow: oklch(0.86 0.19 150);
+  /* illustrated scene matching reference artwork */
+  --wall: #3c6e71;
+  --wall-deep: #2a5254;
+  --floor: #b59873;
+  --desk: #d4b58c;
+  --desk-dark: #8f724d;
+  --screen: #1b262c;
+  --screen-glow: #38ef7d;
 }
 
 .dark {
-  --background: oklch(0.19 0.01 285);
-  --foreground: var(--lab-paper);
-  --card: oklch(0.24 0.012 285);
-  --card-foreground: var(--lab-paper);
-  --popover: oklch(0.24 0.012 285);
-  --popover-foreground: var(--lab-paper);
-  --primary: var(--lab-paper);
+  --background: #1b262c;
+  --foreground: #e8dfd0;
+  --card: #273549;
+  --card-foreground: #e8dfd0;
+  --popover: #273549;
+  --popover-foreground: #e8dfd0;
+  --primary: #e8dfd0;
   --primary-foreground: var(--lab-ink);
-  --secondary: oklch(0.3 0.012 285);
-  --secondary-foreground: var(--lab-paper);
-  --muted: oklch(0.3 0.012 285);
-  --muted-foreground: oklch(0.72 0.012 285);
-  --border: var(--lab-paper);
-  --input: var(--lab-paper);
-  --wall: oklch(0.32 0.04 200);
-  --wall-deep: oklch(0.25 0.04 210);
+  --secondary: #32435b;
+  --secondary-foreground: #e8dfd0;
+  --muted: #32435b;
+  --muted-foreground: #a3b1c6;
+  --border: #e8dfd0;
+  --input: #e8dfd0;
+  --wall: #1e3a3a;
+  --wall-deep: #132727;
 }
 
 @layer base {
   * {
     border-color: var(--color-border);
   }
+
   html,
   body {
     background-color: var(--color-background);
@@ -121,12 +122,14 @@
     font-family: var(--font-sans);
     overscroll-behavior: none;
   }
+
   h1,
   h2,
   h3 {
     font-family: var(--font-display);
     letter-spacing: 0.01em;
   }
+
   :focus-visible {
     outline: 3px solid var(--color-lab-blue);
     outline-offset: 2px;
@@ -149,10 +152,12 @@
   transition:
     transform 90ms ease-out,
     box-shadow 90ms ease-out;
+
   &:hover {
     transform: translate(2px, 2px);
     box-shadow: 3px 3px 0 0 var(--color-lab-ink);
   }
+
   &:active {
     transform: translate(5px, 5px);
     box-shadow: 0 0 0 0 var(--color-lab-ink);
@@ -168,63 +173,41 @@
 }
 
 @utility hatch {
-  background-image: repeating-linear-gradient(
-    45deg,
-    color-mix(in oklab, var(--color-lab-ink) 22%, transparent) 0 2px,
-    transparent 2px 7px
-  );
+  background-image: repeating-linear-gradient(45deg,
+      color-mix(in oklab, var(--color-lab-ink) 22%, transparent) 0 2px,
+      transparent 2px 7px);
 }
 
 /* ---------- CRT ---------- */
 
 .crt-overlay {
-  pointer-events: none;
-  position: fixed;
-  inset: 0;
-  z-index: 90;
-  mix-blend-mode: multiply;
-  background:
-    repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.16) 0 1px, transparent 1px 3px),
-    radial-gradient(ellipse at center, rgba(255, 255, 255, 0) 55%, rgba(0, 0, 0, 0.35) 100%);
-}
-
-.crt-overlay::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0));
-  height: 30%;
-  animation: crt-sweep 7s linear infinite;
-}
-
-@keyframes crt-sweep {
-  from {
-    transform: translateY(-120%);
-  }
-  to {
-    transform: translateY(430%);
-  }
+  display: none !important;
 }
 
 /* ---------- animation ---------- */
 
 @keyframes lab-glitch {
+
   0%,
   100% {
     transform: translate(0, 0);
     filter: none;
   }
+
   20% {
     transform: translate(-3px, 1px);
     filter: hue-rotate(25deg);
   }
+
   40% {
     transform: translate(3px, -2px);
   }
+
   60% {
     transform: translate(-2px, 2px);
     filter: saturate(2);
   }
+
   80% {
     transform: translate(2px, 0);
   }
@@ -235,15 +218,18 @@
 }
 
 @keyframes blink-led {
+
   0%,
   45% {
     opacity: 1;
   }
+
   50%,
   100% {
     opacity: 0.25;
   }
 }
+
 .led {
   animation: blink-led 2.4s infinite;
 }
@@ -253,24 +239,29 @@
     transform: rotate(360deg);
   }
 }
+
 .fan {
   transform-origin: center;
   animation: fan-spin 1.6s linear infinite;
 }
 
 @keyframes flicker {
+
   0%,
   97%,
   100% {
     opacity: 1;
   }
+
   98% {
     opacity: 0.55;
   }
+
   99% {
     opacity: 0.85;
   }
 }
+
 .tube-light {
   animation: flicker 6s infinite;
 }
@@ -280,11 +271,13 @@
     transform: translateX(110%);
     opacity: 0;
   }
+
   to {
     transform: translateX(0);
     opacity: 1;
   }
 }
+
 .toast-in {
   animation: toast-in 0.28s cubic-bezier(0.2, 1.1, 0.3, 1);
 }
@@ -294,11 +287,13 @@
     opacity: 0;
     transform: scale(0.94) rotate(-0.6deg);
   }
+
   to {
     opacity: 1;
     transform: scale(1) rotate(0);
   }
 }
+
 .window-in {
   animation: scan-in 0.22s ease-out;
 }
@@ -308,8 +303,29 @@
     opacity: 0;
   }
 }
+
 .caret {
   animation: caret 1s steps(1) infinite;
+}
+
+@keyframes marquee {
+  0% {
+    transform: translateX(100%);
+  }
+
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+.animate-marquee {
+  display: inline-block;
+  white-space: nowrap;
+  animation: marquee 22s linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
 }
 
 .perf-mode .crt-overlay,
@@ -340,26 +356,25 @@
 .custom-cursor,
 .custom-cursor * {
   cursor:
-    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'><path d='M5 3 L5 22 L10 17.5 L13.2 25 L17 23.4 L13.8 16.2 L21 16 Z' fill='%23F4F1E8' stroke='%23111111' stroke-width='2.4' stroke-linejoin='round'/><path d='M7 6.5 L7 17.2 L9.8 14.6' fill='%23FFD60A'/></svg>")
-      4 3,
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'><path d='M5 3 L5 22 L10 17.5 L13.2 25 L17 23.4 L13.8 16.2 L21 16 Z' fill='%23F4F1E8' stroke='%23111111' stroke-width='2.4' stroke-linejoin='round'/><path d='M7 6.5 L7 17.2 L9.8 14.6' fill='%23FFD60A'/></svg>") 4 3,
     auto !important;
 }
+
 .custom-cursor button,
 .custom-cursor a,
 .custom-cursor summary,
 .custom-cursor [role="button"],
 .custom-cursor label[for] {
   cursor:
-    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='30' height='30' viewBox='0 0 30 30'><circle cx='15' cy='15' r='10' fill='%23FFD60A' stroke='%23111111' stroke-width='3'/><circle cx='15' cy='15' r='3' fill='%23111111'/><path d='M15 1.5 v3 M15 25.5 v3 M1.5 15 h3 M25.5 15 h3' stroke='%23111111' stroke-width='3' stroke-linecap='round'/></svg>")
-      15 15,
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='30' height='30' viewBox='0 0 30 30'><circle cx='15' cy='15' r='10' fill='%23FFD60A' stroke='%23111111' stroke-width='3'/><circle cx='15' cy='15' r='3' fill='%23111111'/><path d='M15 1.5 v3 M15 25.5 v3 M1.5 15 h3 M25.5 15 h3' stroke='%23111111' stroke-width='3' stroke-linecap='round'/></svg>") 15 15,
     pointer !important;
 }
+
 .custom-cursor input,
 .custom-cursor textarea,
 .custom-cursor [contenteditable="true"] {
   cursor:
-    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='28' viewBox='0 0 20 28'><path d='M6 3 h8 M6 25 h8 M10 3 v22' stroke='%23111111' stroke-width='3.5' stroke-linecap='round'/><path d='M6 3 h8 M6 25 h8 M10 3 v22' stroke='%23FFD60A' stroke-width='1.4' stroke-linecap='round'/></svg>")
-      10 14,
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='28' viewBox='0 0 20 28'><path d='M6 3 h8 M6 25 h8 M10 3 v22' stroke='%23111111' stroke-width='3.5' stroke-linecap='round'/><path d='M6 3 h8 M6 25 h8 M10 3 v22' stroke='%23FFD60A' stroke-width='1.4' stroke-linecap='round'/></svg>") 10 14,
     text !important;
 }
 
@@ -368,10 +383,108 @@
   width: 10px;
   height: 10px;
 }
+
 .scroll-thin::-webkit-scrollbar-thumb {
   background: var(--color-lab-ink);
   border: 2px solid var(--color-lab-paper);
 }
+
 .scroll-thin::-webkit-scrollbar-track {
   background: var(--color-muted);
+}
+
+/* ---------- COLOR THEME PALETTES ---------- */
+[data-theme="green_phosphor"] {
+  --lab-paper: #04170d;
+  --lab-ink: #00ff66;
+  --card: #082917;
+  --card-foreground: #00ff66;
+  --secondary: #0d3820;
+  --secondary-foreground: #00ff66;
+  --accent: #00ff66;
+  --accent-foreground: #04170d;
+  --lab-red: #00cc52;
+  --lab-yellow: #33ff88;
+  --lab-green: #00ff66;
+  --lab-blue: #66ffaa;
+  --border: #00ff66;
+  --background: #04170d;
+  --foreground: #00ff66;
+}
+
+[data-theme="cyber_pink"] {
+  --lab-paper: #180924;
+  --lab-ink: #ff2a85;
+  --card: #28103c;
+  --card-foreground: #ff2a85;
+  --secondary: #3b1757;
+  --secondary-foreground: #ff2a85;
+  --accent: #00f0ff;
+  --accent-foreground: #180924;
+  --lab-red: #ff2a85;
+  --lab-yellow: #ff9900;
+  --lab-green: #00f0ff;
+  --lab-blue: #b900ff;
+  --border: #ff2a85;
+  --background: #180924;
+  --foreground: #ff2a85;
+}
+
+[data-theme="monochrome"] {
+  --lab-paper: #8b956d;
+  --lab-ink: #0f380f;
+  --card: #9bbc0f;
+  --card-foreground: #0f380f;
+  --secondary: #7b885c;
+  --secondary-foreground: #0f380f;
+  --accent: #306230;
+  --accent-foreground: #9bbc0f;
+  --lab-red: #306230;
+  --lab-yellow: #9bbc0f;
+  --lab-green: #306230;
+  --lab-blue: #0f380f;
+  --border: #0f380f;
+  --background: #8b956d;
+  --foreground: #0f380f;
+}
+
+/* ---------- CRT FLICKER ANIMATIONS ---------- */
+@keyframes crt-flicker-low-anim {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.96;
+  }
+}
+
+@keyframes crt-flicker-high-anim {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  25% {
+    opacity: 0.92;
+  }
+
+  50% {
+    opacity: 0.88;
+  }
+
+  75% {
+    opacity: 0.95;
+  }
+}
+
+.crt-flicker-low .crt-overlay {
+  animation: crt-flicker-low-anim 0.15s infinite;
+}
+
+.crt-flicker-high .crt-overlay {
+  animation: crt-flicker-high-anim 0.08s infinite;
 }

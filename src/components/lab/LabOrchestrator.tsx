@@ -63,13 +63,16 @@ export function LabOrchestrator() {
     return () => window.clearInterval(t);
   }, [hydrated, showBoot, phase, escaped]);
 
-  // body classes for CRT / performance / cursor
+  // body classes for CRT / performance / cursor / themes / flicker
   useEffect(() => {
     const c = document.documentElement.classList;
     c.toggle("crt-on", settings.crt);
+    c.toggle("crt-flicker-low", settings.crt && settings.crtFlicker === "low");
+    c.toggle("crt-flicker-high", settings.crt && settings.crtFlicker === "high");
     c.toggle("perf-mode", settings.performanceMode);
     c.toggle("custom-cursor", settings.customCursor);
     c.toggle("reduced", settings.reducedMotion);
+    document.documentElement.setAttribute("data-theme", settings.colorTheme);
   }, [settings]);
 
   // ambience
@@ -108,20 +111,16 @@ export function LabOrchestrator() {
       <HUD />
       <Toasts />
 
-      {!focus && !over && (
-        <footer className="pointer-events-none absolute inset-x-0 bottom-0 z-30 flex items-end justify-between gap-2 p-3">
-          <p className="mono-label brut-sm bg-card px-2 py-1">CLICK ANYTHING. ESC TO STEP BACK.</p>
-          {phase === "escape" && (
-            <BrutButton variant="danger" className="pointer-events-auto" onClick={() => store.escapeEarly()}>
-              SLIP OUT NOW
-            </BrutButton>
-          )}
+      {!focus && !over && phase === "escape" && (
+        <footer className="pointer-events-none absolute inset-x-0 bottom-0 z-30 flex items-end justify-end gap-2 p-3">
+          <BrutButton variant="danger" className="pointer-events-auto" onClick={() => store.escapeEarly()}>
+            SLIP OUT NOW
+          </BrutButton>
         </footer>
       )}
 
       {over && <EndScreen />}
       {showBoot && !bootSeen && <BootSequence onDone={() => setShowBoot(false)} />}
-      {settings.crt && <div className="crt-overlay pointer-events-none absolute inset-0 z-[60]" aria-hidden />}
     </main>
   );
 }

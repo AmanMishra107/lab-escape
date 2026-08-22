@@ -1,75 +1,55 @@
+export type NoticeCategory = "event" | "assignment" | "project" | "announcement";
+
 export interface Notice {
+  id?: string | undefined;
   title: string;
   body: string;
   sign: string;
+  category?: NoticeCategory | undefined;
+  date?: string | undefined;
+  expires_at?: string | undefined; // ISO string for automated expiry after date passes
   tone: "normal" | "warn" | "chaos";
+  isCustom?: boolean | undefined;
 }
 
+/**
+ * Official Lab Instructions & Rules ONLY.
+ */
 export const NOTICES: Notice[] = [
   {
-    title: "NOTICE",
-    body: "Students are strictly prohibited from sleeping during practicals. Sitting upright with your eyes closed is also being monitored.",
-    sign: "— Management",
+    id: "lab_inst_1",
+    title: "OFFICIAL LAB INSTRUCTIONS & CONDUCT",
+    body: "1. Wearing ID card is mandatory in the laboratory at all times.\n2. Eating, drinking, or sleeping during practical sessions is strictly prohibited.\n3. Handle all computer systems, keyboards, and lab equipment with proper care.\n4. Keep workstations clean and log out before leaving.",
+    sign: "— Lab Management",
+    category: "announcement",
+    date: "Official Policy",
     tone: "normal",
   },
   {
-    title: "IMPORTANT",
-    body: "The WiFi password has been changed. Please ask nobody.",
-    sign: "— Network Dept.",
-    tone: "normal",
-  },
-  {
-    title: "ATTENDANCE UPDATE",
-    body: "Your attendance has been emotionally reviewed. Current: 71%. Required: 75%. Professor's opinion: 'Interesting.'",
-    sign: "— Records Office",
+    id: "lab_inst_2",
+    title: "PRACTICAL EXPERIMENT & MANUAL GUIDELINES",
+    body: "1. Complete Lab Manual Experiments 1 through 10 as per schedule.\n2. Ensure observation tables and output graphs are verified by the instructor.\n3. Submit practical files before final term viva assessment.",
+    sign: "— Department Coordinator",
+    category: "assignment",
+    date: "Academic Year 2026",
     tone: "warn",
   },
   {
-    title: "LAB RULES",
-    body: "1. Do not eat in the lab.\n2. Do not drink in the lab.\n3. Do not exist loudly in the lab.",
-    sign: "— Lab Assistant",
-    tone: "normal",
-  },
-  {
-    title: "SYSTEM MAINTENANCE",
-    body: "Systems 4, 7 and 12 are under maintenance. They have been under maintenance since 2019.",
-    sign: "— Technical Team",
-    tone: "normal",
-  },
-  {
-    title: "LOST & FOUND",
-    body: "Found: one USB drive, one calculator, one student's will to live. Claim at the front desk.",
-    sign: "— Front Desk",
-    tone: "warn",
-  },
-  {
-    title: "⚠ WARNING",
-    body: "Printer 2 prints things nobody sent. Do not engage. Do not read the output. Definitely do not press PRINT three times.",
-    sign: "— Anonymous",
+    id: "lab_inst_3",
+    title: "EMERGENCY & FIRE SAFETY PROCEDURE",
+    body: "In case of any emergency or alarm, remain calm and proceed to the designated emergency exit.\nRear door access code: 4040.",
+    sign: "— Safety Officer",
+    category: "announcement",
+    date: "Emergency Protocol",
     tone: "chaos",
   },
   {
-    title: "FIRE SAFETY",
-    body: "In case of emergency, the rear exit may be used. Access code is written somewhere in this room. Good luck.",
-    sign: "— Safety Committee",
-    tone: "chaos",
-  },
-  {
-    title: "SEMINAR",
-    body: "'Time Management For Students' — cancelled due to scheduling conflict.",
-    sign: "— Dept. of Irony",
+    id: "lab_inst_4",
+    title: "HARDWARE & SYSTEM FAULT REPORTING",
+    body: "Report any hardware malfunctions, network outages, or printer faults directly to the technical team at the front desk. Do not attempt to disconnect lab cables.",
+    sign: "— Technical Staff",
+    category: "announcement",
+    date: "Standard Procedure",
     tone: "normal",
-  },
-  {
-    title: "NOTICE",
-    body: "Assignment status: 99% complete. Missing: submission.",
-    sign: "— Automated Reminder",
-    tone: "warn",
-  },
-  {
-    title: "!! LAB SESSION ENDING !!",
-    body: "All students must vacate. The professor is walking this way. Pack your bag. Act natural.",
-    sign: "— The Room Itself",
-    tone: "chaos",
   },
 ];

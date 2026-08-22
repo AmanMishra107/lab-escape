@@ -3,7 +3,10 @@ import { ACHIEVEMENT_MAP } from "../data/achievements";
 import { EGG_MAP } from "../data/easterEggs";
 import { GAME_MAP } from "../data/games";
 import { clearSave, defaultSave, DEFAULT_DURATION_MS, loadSave, writeSave } from "./SaveSystem";
+import { sound } from "./SoundSystem";
 import type { AppId, GameId, GameResult, ObjectId, Phase, SaveData, Settings } from "./types";
+
+import type { Notice } from "../data/notices";
 
 export interface Toast {
   id: number;
@@ -16,6 +19,7 @@ export interface Runtime {
   booted: boolean;
   focus: ObjectId | null;
   openApps: AppId[];
+  minimizedApps: AppId[];
   activeApp: AppId | null;
   toasts: Toast[];
   lastInteraction: number;
@@ -23,6 +27,11 @@ export interface Runtime {
   glitch: number; // 0..1 intensity burst
   doNotClickCount: number;
   now: number;
+  whiteboardData: string | null;
+  customNotices: Notice[];
+  typedPassword: string;
+  loginAuthenticated: boolean;
+  activePressedKey: string | null;
 }
 
 export interface LabState {
@@ -47,6 +56,7 @@ class LabStore {
       booted: false,
       focus: null,
       openApps: [],
+      minimizedApps: [],
       activeApp: null,
       toasts: [],
       lastInteraction: Date.now(),
@@ -54,6 +64,11 @@ class LabStore {
       glitch: 0,
       doNotClickCount: 0,
       now: Date.now(),
+      whiteboardData: null,
+      customNotices: [],
+      typedPassword: "",
+      loginAuthenticated: false,
+      activePressedKey: null,
     },
   };
   private listeners = new Set<() => void>();
@@ -90,11 +105,12 @@ class LabStore {
   }
 
   /* ---------- toasts ---------- */
-  toast(kind: Toast["kind"], title: string, body?: string) {
+  toast(kind: Toast["kind"], title: string, body?: string, durationMs?: number) {
     const id = this.toastSeq++;
     this.state.rt.toasts = [...this.state.rt.toasts, { id, kind, title, body }].slice(-4);
     this.emit();
-    setTimeout(() => this.dismiss(id), kind === "warn" ? 6000 : 4500);
+    const timeout = durationMs || (kind === "warn" ? 6000 : 4500);
+    setTimeout(() => this.dismiss(id), timeout);
   }
   dismiss(id: number) {
     this.state.rt.toasts = this.state.rt.toasts.filter((t) => t.id !== id);
@@ -233,10 +249,16 @@ class LabStore {
 
   openApp(id: AppId) {
     this.interacted();
+    if (id === "phone") {
+      this.focusObject("phone");
+    } else {
+      this.focusObject("computer");
+    }
     const open = this.state.rt.openApps.includes(id)
       ? this.state.rt.openApps
       : [...this.state.rt.openApps, id];
-    this.setRt({ openApps: open, activeApp: id });
+    const minimized = this.state.rt.minimizedApps.filter((a) => a !== id);
+    this.setRt({ openApps: open, minimizedApps: minimized, activeApp: id });
     if (!this.state.save.openedApps.includes(id)) {
       this.setSave({ openedApps: [...this.state.save.openedApps, id] });
       if (this.state.save.openedApps.length >= 5) this.unlock("app_opener");
@@ -248,10 +270,89 @@ class LabStore {
   }
   closeApp(id: AppId) {
     const open = this.state.rt.openApps.filter((a) => a !== id);
-    this.setRt({ openApps: open, activeApp: open[open.length - 1] ?? null });
+    const minimized = this.state.rt.minimizedApps.filter((a) => a !== id);
+    const visibleOpen = open.filter((a) => !minimized.includes(a));
+    this.setRt({
+      openApps: open,
+      minimizedApps: minimized,
+      activeApp: visibleOpen[visibleOpen.length - 1] ?? null,
+    });
   }
   focusApp(id: AppId) {
-    this.setRt({ activeApp: id });
+    const minimized = this.state.rt.minimizedApps.filter((a) => a !== id);
+    this.setRt({ minimizedApps: minimized, activeApp: id });
+  }
+  minimizeApp(id: AppId) {
+    if (!this.state.rt.openApps.includes(id)) return;
+    const minimized = this.state.rt.minimizedApps.includes(id)
+      ? this.state.rt.minimizedApps
+      : [...this.state.rt.minimizedApps, id];
+    const visibleOpen = this.state.rt.openApps.filter((a) => !minimized.includes(a));
+    const nextActive = this.state.rt.activeApp === id ? (visibleOpen[visibleOpen.length - 1] ?? null) : this.state.rt.activeApp;
+    this.setRt({ minimizedApps: minimized, activeApp: nextActive });
+  }
+  restoreApp(id: AppId) {
+    this.focusApp(id);
+  }
+  toggleMinimizeApp(id: AppId) {
+    const isMinimized = this.state.rt.minimizedApps.includes(id);
+    if (isMinimized) {
+      this.restoreApp(id);
+    } else if (this.state.rt.activeApp === id) {
+      this.minimizeApp(id);
+    } else {
+      this.focusApp(id);
+    }
+  }
+
+  typeMonitorKey(key: string) {
+    sound.play("key");
+    const current = this.state.rt.typedPassword || "";
+    let next = current;
+
+    if (key === "Backspace" || key === "DEL" || key === "DELETE") {
+      next = current.slice(0, -1);
+    } else if (key === "Enter" || key === "ENTER" || key === "RETURN") {
+      if (current === "4040") {
+        sound.play("success");
+        this.setRt({ loginAuthenticated: true, typedPassword: "4040" });
+        this.addXp(50, "Authenticated into Lab OS");
+        this.toast("system", "ACCESS GRANTED", "Welcome to LAB-OS 1.0!");
+      } else {
+        sound.play("error");
+        this.toast("warn", "ACCESS DENIED", "Incorrect passcode! (Hint: 4040)");
+        next = "";
+      }
+    } else if (current.length < 8) {
+      next = current + key;
+      if (next === "4040") {
+        sound.play("success");
+        this.setRt({ loginAuthenticated: true, typedPassword: "4040" });
+        this.addXp(50, "Authenticated into Lab OS");
+        this.toast("system", "ACCESS GRANTED", "Welcome to LAB-OS 1.0!");
+      }
+    }
+
+    this.setRt({ typedPassword: next, activePressedKey: key });
+    setTimeout(() => {
+      this.setRt({ activePressedKey: null });
+    }, 150);
+  }
+
+  setWhiteboardData(dataUrl: string | null) {
+    this.setRt({ whiteboardData: dataUrl });
+  }
+
+  addCustomNotice(notice: Notice) {
+    const next = [notice, ...this.state.rt.customNotices];
+    this.setRt({ customNotices: next });
+    this.addXp(15, "Posted a new notice");
+    this.toast("system", "NOTICE POSTED", `"${notice.title}" pinned to the board.`);
+  }
+
+  deleteCustomNotice(id: string) {
+    const next = this.state.rt.customNotices.filter((n) => n.id !== id);
+    this.setRt({ customNotices: next });
   }
 
   glitchBurst(intensity = 1) {

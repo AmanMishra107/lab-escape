@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <!-- Background Dark CRT Bezel -->
+  <rect x="32" y="32" width="448" height="380" rx="32" fill="#121820" stroke="#000000" stroke-width="24"/>
+  
+  <!-- Outer Frame Shadow (Brutalist Offset) -->
+  <path d="M 64 412 L 448 412 L 448 436 L 64 436 Z" fill="#000000" opacity="0.3"/>
+  
+  <!-- CRT Screen Glow Area -->
+  <rect x="64" y="64" width="384" height="300" rx="16" fill="#0c1d15" stroke="#00ff66" stroke-width="12"/>
+  
+  <!-- Terminal Screen Grid Overlay -->
+  <path d="M 64 120 L 448 120 M 64 180 L 448 180 M 64 240 L 448 240 M 64 300 L 448 300" stroke="#00ff66" stroke-width="2" opacity="0.15"/>
+  
+  <!-- Glowing >_ Prompt -->
+  <!-- '>' Chevron -->
+  <path d="M 104 120 L 160 160 L 104 200" fill="none" stroke="#00ff66" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- Blinking Caret '_' -->
+  <rect x="184" y="180" width="72" height="24" rx="4" fill="#ffcc00"/>
+  
+  <!-- ESC Key Badge on Screen Top Right -->
+  <rect x="340" y="88" width="88" height="44" rx="8" fill="#ff3366" stroke="#ffffff" stroke-width="6"/>
+  <text x="384" y="118" font-family="monospace, sans-serif" font-weight="900" font-size="22" fill="#ffffff" text-anchor="middle">ESC</text>
+  
+  <!-- Monitor Stand Base -->
+  <path d="M 192 412 L 320 412 L 352 480 L 160 480 Z" fill="#222c38" stroke="#000000" stroke-width="16"/>
+  <rect x="128" y="468" width="256" height="24" rx="8" fill="#000000"/>
+</svg>

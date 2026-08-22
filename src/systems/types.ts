@@ -8,8 +8,7 @@ export type ObjectId =
   | "clock"
   | "window"
   | "trash"
-  | "whiteboard"
-  | "backpack";
+  | "whiteboard";
 
 export type AppId =
   | "terminal"
@@ -19,10 +18,10 @@ export type AppId =
   | "files"
   | "puzzles"
   | "achievements"
-  | "inventory"
   | "settings";
 
 export type GameId =
+  // ⚡ CLASSIC ARCADE & QUICK PLAY (1-15)
   | "snake"
   | "minesweeper"
   | "reaction"
@@ -32,13 +31,34 @@ export type GameId =
   | "aim"
   | "flappy"
   | "runner"
-  | "math";
+  | "math"
+  | "twentyfortyeight"
+  | "wordle"
+  | "simon"
+  | "sudoku"
+  | "whackamole"
+  // 🎮 CLASSIC ARCADE & BOARD EXPANSION (16-25)
+  | "pacman"
+  | "tetris"
+  | "pong"
+  | "chess"
+  | "spaceinvaders"
+  | "breakout"
+  | "connectfour"
+  | "asteroids"
+  | "battleship"
+  | "ludo";
 
 export interface GameResult {
+  gameId: GameId;
   score: number;
-  accuracy: number; // 0..1
-  time: number; // ms played
+  accuracy?: number; // 0..1
+  time?: number; // ms played
   completed: boolean;
+  won?: boolean;
+  difficulty?: "easy" | "normal" | "hard";
+  xpEarned: number;
+  achievementsUnlocked?: string[];
 }
 
 export interface Settings {
@@ -46,10 +66,15 @@ export interface Settings {
   masterVolume: number;
   sfxVolume: number;
   ambienceVolume: number;
+  keyboardClicks: boolean;
   crt: boolean;
-  reducedMotion: boolean;
+  crtFlicker: "off" | "low" | "high";
   customCursor: boolean;
+  reducedMotion: boolean;
   performanceMode: boolean;
+  showFpsCounter: boolean;
+  colorTheme: "classic" | "green_phosphor" | "cyber_pink" | "monochrome";
+  autoSaveInterval: number;
 }
 
 export interface Stats {

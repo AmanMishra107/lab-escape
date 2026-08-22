@@ -27,6 +27,7 @@ class SoundSystem {
     const ctx = this.ensure();
     if (!ctx || !this.master) return;
     const settings = store.getSnapshot().save.settings;
+    if (tone === "key" && !settings.keyboardClicks) return;
     const t = ctx.currentTime;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();

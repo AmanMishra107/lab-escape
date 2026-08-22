@@ -6,6 +6,7 @@ import {
   clearIdentity,
   fetchMessages,
   fetchOnline,
+  getSessionStart,
   heartbeat,
   joinAsName,
   readIdentity,
@@ -38,11 +39,12 @@ export function LiveChat() {
     setReady(true);
   }, []);
 
-  // load + realtime
+  // load + realtime — only show messages from this session onwards
   useEffect(() => {
     if (!identity) return;
     let alive = true;
-    void fetchMessages().then((m) => alive && setMessages(m));
+    const sessionStart = getSessionStart();
+    void fetchMessages(sessionStart).then((m) => alive && setMessages(m));
     const channel = supabase
       .channel("lab_chat")
       .on(
@@ -50,6 +52,8 @@ export function LiveChat() {
         { event: "INSERT", schema: "public", table: "lab_messages", filter: `room=eq.${ROOM}` },
         (payload) => {
           const msg = payload.new as LiveMessage;
+          // Ignore messages sent before this session started
+          if (sessionStart && msg.created_at < sessionStart) return;
           setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg].slice(-200)));
           if (msg.player_id !== identity.id) sound.play("pop");
         },
@@ -84,7 +88,7 @@ export function LiveChat() {
       <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
         <h3 className="font-display text-3xl">LAB CHAT — LIVE</h3>
         <p className="max-w-sm text-sm opacity-80">
-          Type a name. No password, no email. Your friends open the same link and you all talk in real time.
+          Type a name. Session-only live chat — your identity and local chat data are automatically wiped from this machine when your session ends or tab closes.
         </p>
         <form
           className="flex w-full max-w-sm flex-col gap-2 sm:flex-row"
@@ -96,7 +100,7 @@ export function LiveChat() {
               .then((id) => {
                 setIdentity(id);
                 store.interacted();
-                store.toast("system", "JOINED LAB CHAT", `You are ${id.name}.`);
+                store.toast("system", "JOINED LAB CHAT", `You are ${id.name} (Session Only).`);
               })
               .catch((err: Error) => setError(err.message))
               .finally(() => setJoining(false));
@@ -124,6 +128,7 @@ export function LiveChat() {
         <div className="flex items-center gap-2">
           <h3 className="font-display text-xl">LAB CHAT</h3>
           <Tag tone="green">LIVE</Tag>
+          <Tag tone="yellow">SESSION ONLY</Tag>
         </div>
         <div className="flex items-center gap-2">
           <span className="mono-label opacity-70">
@@ -135,9 +140,10 @@ export function LiveChat() {
               clearIdentity();
               setIdentity(null);
               setMessages([]);
+              store.toast("system", "SESSION WIPED", "LabChat identity & session data wiped from this machine.");
             }}
           >
-            SWITCH NAME
+            WIPE SESSION
           </BrutButton>
         </div>
       </div>

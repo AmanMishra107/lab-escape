@@ -39,6 +39,27 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: "do_not_click", name: "You Were Warned", description: "Click the thing you were told not to click. Five times.", xp: 120, secret: true },
   { id: "escape_artist", name: "Escape Artist", description: "Survive the entire lab session.", xp: 500 },
   { id: "early_exit", name: "Emergency Exit", description: "Escape early through the fire door.", xp: 750, secret: true },
+
+  // Classic Arcade & Board Expansion Achievements (Games 16-25)
+  { id: "labman_clear", name: "Maze Runner", description: "Clear your first maze in LAB-MAN.EXE.", xp: 150 },
+  { id: "tetris_god", name: "Tetris Master", description: "Clear 10+ lines in Tetris.", xp: 200 },
+  { id: "four_lines", name: "Tetris!", description: "Perform a 4-line Tetris drop.", xp: 250 },
+  { id: "pong_champion", name: "Pong Champion", description: "Beat Hard Bot in Pong.exe.", xp: 200 },
+  { id: "perfect_pong", name: "Perfect Pong", description: "Win a Pong match without conceding a single point.", xp: 250 },
+  { id: "checkmate", name: "Checkmate!", description: "Deliver checkmate in Chess.exe.", xp: 300 },
+  { id: "grandmaster", name: "Grandmaster", description: "Defeat Hard Bot in Chess.exe.", xp: 400 },
+  { id: "invader", name: "Invader Destroyer", description: "Clear a wave in Space Invaders.exe.", xp: 150 },
+  { id: "alien_exterminator", name: "System Protector", description: "Reach Wave 3 in Space Invaders.", xp: 250 },
+  { id: "breaker", name: "Brick Breaker", description: "Clear all bricks in Breakout.exe.", xp: 200 },
+  { id: "brick_wall", name: "Brick Wall", description: "Score 500+ in Breakout.", xp: 250 },
+  { id: "four_connected", name: "Four Connected", description: "Connect 4 discs to win in Connect Four.", xp: 150 },
+  { id: "strategist", name: "Master Strategist", description: "Defeat Hard AI in Connect Four.", xp: 250 },
+  { id: "asteroid_miner", name: "Asteroid Miner", description: "Destroy 15 asteroids in Asteroids.exe.", xp: 200 },
+  { id: "zero_gravity", name: "Zero Gravity", description: "Score 300+ in Asteroids.", xp: 250 },
+  { id: "fleet_commander", name: "Fleet Commander", description: "Sink the entire enemy fleet in Battleship.exe.", xp: 300 },
+  { id: "perfect_hunter", name: "Perfect Hunter", description: "Win Battleship with zero misses.", xp: 400, secret: true },
+  { id: "ludo_king", name: "Ludo King", description: "Win a 4-token Ludo match.", xp: 300 },
+  { id: "home_sweet_home", name: "Home Sweet Home", description: "Get all 4 tokens into home in Ludo.", xp: 350 },
 ];
 
 export const ACHIEVEMENT_MAP = new Map(ACHIEVEMENTS.map((a) => [a.id, a]));
