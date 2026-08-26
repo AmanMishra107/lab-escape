@@ -28,11 +28,11 @@ async function customChatFetch(input: RequestInfo | URL, init?: RequestInit): Pr
   }
 
   const apiKey = (import.meta.env as any).VITE_GROQ_API_KEY;
-
-
   if (!apiKey) {
-    throw new Error("Missing Groq API Key (VITE_GROQ_API_KEY).");
+    throw new Error("GROQ_API_KEY is missing on server/client. Please add GROQ_API_KEY to your Vercel/Netlify Environment Variables.");
   }
+
+
 
   const bodyData = init?.body ? JSON.parse(init.body as string) : {};
   const uiMessages = bodyData.messages || [];

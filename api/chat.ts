@@ -34,13 +34,17 @@ export async function POST(request: Request) {
     const key = process.env.GROQ_API_KEY || process.env.VITE_GROQ_API_KEY;
     if (!key) {
       return new Response(
-        JSON.stringify({ error: "Missing GROQ_API_KEY on server. Check environment configuration." }),
+        JSON.stringify({
+          error: "GROQ_API_KEY is not set in Vercel. Please open Vercel Dashboard -> Settings -> Environment Variables and add GROQ_API_KEY.",
+        }),
         {
           status: 500,
           headers: { "Content-Type": "application/json" },
         }
       );
     }
+
+
 
     const groq = createGroqProvider(key);
     const modelMessages = await convertToModelMessages(messages as UIMessage[]);
