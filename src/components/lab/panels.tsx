@@ -14,28 +14,392 @@ const fmt = (ms: number) => {
   return `${String(Math.floor(s / 3600)).padStart(2, "0")}:${String(Math.floor((s % 3600) / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 };
 
+
+const ROASTS = [
+  "Still clicking? Bold strategy.",
+  "Time doesn't bend for clickers.",
+  "Your prof is watching. Just saying.",
+  "That's not how clocks work.",
+  "Nice try. Still ticking.",
+  "The clock remains unimpressed.",
+  "You absolute menace.",
+  "What did you expect? More time?",
+  "Yaar, chhod isko. Padh le.",
+  "✨ Click → time not paused ✨",
+  "This is not a viva question.",
+  "Even DSA can't fix this.",
+  "Sir is not coming. Clock is.",
+  "Bhai, assignment baki hai.",
+  "Pro gamer move: still failed.",
+];
+
+const PANIC_MSGS = [
+  "⚠️ VIVA IN 30 MIN",
+  "🔥 SUBMIT OR PERISH",
+  "📋 HAVE YOU EVEN STARTED?",
+  "⏰ TICK TOCK BHAI",
+  "🚨 THIS IS FINE (it is not)",
+];
+
 function ClockPanel() {
   const remaining = useLab(() => store.remainingMs());
+  const phase = useLab(() => store.phase());
   const [clicks, setClicks] = useState(0);
+  const [roast, setRoast] = useState<string | null>(null);
+  const [roastKey, setRoastKey] = useState(0);
+  const [particles, setParticles] = useState<{ id: number; x: number; y: number; vx: number; vy: number; life: number; color: string }[]>([]);
+  const [panicIdx, setPanicIdx] = useState(0);
+  const [shake, setShake] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const roastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const animRef = useRef<number>(0);
+
+  const totalMs = 4 * 60 * 60 * 1000;
+  const pct = Math.min(1, Math.max(0, remaining / totalMs));
+  const isPanic = phase === "panic" || phase === "escape" || remaining < 15 * 60 * 1000;
+  const isLow = remaining < 30 * 60 * 1000;
+
+  // Panic message cycling
+  useEffect(() => {
+    if (!isPanic) return;
+    const t = window.setInterval(() => setPanicIdx((i) => (i + 1) % PANIC_MSGS.length), 1500);
+    return () => window.clearInterval(t);
+  }, [isPanic]);
+
+  // Particle animation loop
+  useEffect(() => {
+    let last = 0;
+    const tick = (now: number) => {
+      const dt = now - last;
+      last = now;
+      setParticles((prev) =>
+        prev
+          .map((p) => ({ ...p, x: p.x + p.vx, y: p.y + p.vy, vy: p.vy + 0.2, life: p.life - dt / 16 }))
+          .filter((p) => p.life > 0),
+      );
+      animRef.current = requestAnimationFrame(tick);
+    };
+    animRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(animRef.current);
+  }, []);
+
+  // Analog clock canvas
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const w = canvas.width;
+    const h = canvas.height;
+    const cx = w / 2;
+    const cy = h / 2;
+    const r = Math.min(w, h) / 2 - 6;
+
+    const now = new Date();
+    const hrs = now.getHours() % 12;
+    const mins = now.getMinutes();
+    const secs = now.getSeconds();
+    const ms = now.getMilliseconds();
+
+    const secAngle = ((secs + ms / 1000) / 60) * Math.PI * 2 - Math.PI / 2;
+    const minAngle = ((mins + secs / 60) / 60) * Math.PI * 2 - Math.PI / 2;
+    const hrAngle = ((hrs + mins / 60) / 12) * Math.PI * 2 - Math.PI / 2;
+
+    const inkColor = "#1a1a1a";
+    const redColor = isPanic ? "#d94f3d" : "#1a1a1a";
+
+    ctx.clearRect(0, 0, w, h);
+
+    // Face
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fillStyle = isPanic ? "#fff0ee" : "#f5f0e8";
+    ctx.fill();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = inkColor;
+    ctx.stroke();
+
+    // Hour tick marks
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2 - Math.PI / 2;
+      const big = i % 3 === 0;
+      const len = big ? r * 0.18 : r * 0.1;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(a) * (r - len), cy + Math.sin(a) * (r - len));
+      ctx.lineTo(cx + Math.cos(a) * (r - 3), cy + Math.sin(a) * (r - 3));
+      ctx.lineWidth = big ? 3 : 1.5;
+      ctx.strokeStyle = inkColor;
+      ctx.stroke();
+    }
+
+    // Hour hand
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(hrAngle) * r * 0.55, cy + Math.sin(hrAngle) * r * 0.55);
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = inkColor;
+    ctx.lineCap = "round";
+    ctx.stroke();
+
+    // Minute hand
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(minAngle) * r * 0.78, cy + Math.sin(minAngle) * r * 0.78);
+    ctx.lineWidth = 3.5;
+    ctx.strokeStyle = inkColor;
+    ctx.stroke();
+
+    // Second hand
+    ctx.beginPath();
+    ctx.moveTo(cx - Math.cos(secAngle) * r * 0.15, cy - Math.sin(secAngle) * r * 0.15);
+    ctx.lineTo(cx + Math.cos(secAngle) * r * 0.9, cy + Math.sin(secAngle) * r * 0.9);
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = redColor;
+    ctx.stroke();
+
+    // Center dot
+    ctx.beginPath();
+    ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+    ctx.fillStyle = redColor;
+    ctx.fill();
+  });
+
+  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    sound.play("click");
+    store.interacted();
+    const n = clicks + 1;
+    setClicks(n);
+    if (n >= 3) store.findEgg("clock_x3");
+
+    // Spawn particles
+    const rect = e.currentTarget.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const colors = isPanic
+      ? ["#d94f3d", "#ff8c69", "#ffc107"]
+      : ["#1a1a1a", "#4a90d9", "#f5c842", "#e87040"];
+    const newParticles = Array.from({ length: 12 }, (_, i) => ({
+      id: Date.now() + i,
+      x: mx,
+      y: my,
+      vx: (Math.random() - 0.5) * 8,
+      vy: (Math.random() - 0.8) * 8,
+      life: 40 + Math.random() * 30,
+      color: colors[Math.floor(Math.random() * colors.length)]!,
+    }));
+    setParticles((prev) => [...prev, ...newParticles]);
+
+    // Roast
+    const r = ROASTS[Math.floor(Math.random() * ROASTS.length)]!;
+    setRoast(r);
+    setRoastKey((k) => k + 1);
+    setShake(true);
+    setTimeout(() => setShake(false), 400);
+    if (roastTimer.current) clearTimeout(roastTimer.current);
+    roastTimer.current = setTimeout(() => setRoast(null), 2500);
+  };
+
+  const s = Math.max(0, Math.floor(remaining / 1000));
+  const hh = String(Math.floor(s / 3600)).padStart(2, "0");
+  const mm = String(Math.floor((s % 3600) / 60)).padStart(2, "0");
+  const ss = String(s % 60).padStart(2, "0");
+
+  // Progress arc color
+  const arcColor = pct > 0.5 ? "#4caf50" : pct > 0.25 ? "#f5c842" : "#d94f3d";
+
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-4">
-      <p className="mono-label">LAB TIME REMAINING</p>
-      <button
-        className="brut bg-lab-paper px-8 py-6 font-display text-5xl tabular-nums sm:text-7xl"
-        onClick={() => {
-          sound.play("click");
-          store.interacted();
-          const n = clicks + 1;
-          setClicks(n);
-          if (n >= 3) store.findEgg("clock_x3");
-        }}
-      >
-        {fmt(remaining)}
-      </button>
-      <p className="mono-label opacity-70">The clock is not negotiable. You may still click it.</p>
+    <div className="relative flex h-full flex-col items-center justify-center gap-5 overflow-hidden select-none">
+      {/* Background panic grid */}
+      {isPanic && (
+        <div
+          className="pointer-events-none absolute inset-0 opacity-5"
+          style={{
+            backgroundImage: "repeating-linear-gradient(0deg,#d94f3d 0,#d94f3d 1px,transparent 0,transparent 40px),repeating-linear-gradient(90deg,#d94f3d 0,#d94f3d 1px,transparent 0,transparent 40px)",
+          }}
+        />
+      )}
+
+      {/* Panic banner */}
+      {isPanic && (
+        <div
+          className="mono-label rounded-none border-2 border-lab-red bg-lab-red px-4 py-1 text-lab-paper text-xs tracking-widest"
+          style={{ animation: "pulse 0.8s ease-in-out infinite" }}
+        >
+          {PANIC_MSGS[panicIdx]}
+        </div>
+      )}
+
+      {/* Header */}
+      {!isPanic && (
+        <p className="mono-label text-[10px] tracking-widest opacity-60">LAB TIME REMAINING</p>
+      )}
+
+      {/* Clock row: analog + digital */}
+      <div className="flex items-center gap-6">
+
+        {/* Analog clock */}
+        <div className="relative flex-shrink-0">
+          <canvas
+            ref={canvasRef}
+            width={110}
+            height={110}
+            className="rounded-full"
+            style={{
+              filter: isPanic ? "drop-shadow(0 0 8px #d94f3d88)" : "drop-shadow(0 2px 6px #0002)",
+            }}
+          />
+          {/* Sweep animation ring */}
+          <svg
+            className="pointer-events-none absolute inset-0"
+            width={110}
+            height={110}
+            viewBox="0 0 110 110"
+          >
+            <circle
+              cx={55}
+              cy={55}
+              r={48}
+              fill="none"
+              stroke={arcColor}
+              strokeWidth={4}
+              strokeDasharray={`${pct * 301.6} 301.6`}
+              strokeLinecap="round"
+              transform="rotate(-90 55 55)"
+              style={{ transition: "stroke 1s, stroke-dasharray 1s linear" }}
+              opacity={0.6}
+            />
+          </svg>
+        </div>
+
+        {/* Digital countdown */}
+        <div className="flex flex-col items-center gap-1">
+          <button
+            className={`relative overflow-hidden border-3 border-lab-ink bg-lab-paper px-5 py-3 font-display tabular-nums transition-transform ${
+              shake ? "scale-95" : hovered ? "scale-105" : "scale-100"
+            }`}
+            style={{
+              fontSize: "clamp(2rem, 5vw, 3.5rem)",
+              letterSpacing: "-0.02em",
+              color: isLow ? "#d94f3d" : "#1a1a1a",
+              boxShadow: isPanic
+                ? "4px 4px 0 #d94f3d"
+                : "4px 4px 0 #1a1a1a",
+              transition: "transform 0.1s, box-shadow 0.2s, color 0.5s",
+            }}
+            onClick={handleClick}
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
+          >
+            {/* Particles */}
+            {particles.map((p) => (
+              <span
+                key={p.id}
+                className="pointer-events-none absolute rounded-full"
+                style={{
+                  left: p.x,
+                  top: p.y,
+                  width: 6,
+                  height: 6,
+                  background: p.color,
+                  transform: "translate(-50%,-50%)",
+                  opacity: p.life / 70,
+                }}
+              />
+            ))}
+
+            <span>{hh}</span>
+            <span
+              style={{
+                animation: "ping 1s step-end infinite",
+                display: "inline-block",
+                width: "0.5em",
+                textAlign: "center",
+              }}
+            >
+              :
+            </span>
+            <span>{mm}</span>
+            <span
+              style={{
+                animation: "ping 1s step-end infinite",
+                display: "inline-block",
+                width: "0.5em",
+                textAlign: "center",
+              }}
+            >
+              :
+            </span>
+            <span>{ss}</span>
+
+            {/* Hover shimmer */}
+            {hovered && (
+              <span
+                className="pointer-events-none absolute inset-0"
+                style={{
+                  background: "linear-gradient(90deg, transparent 0%, #ffffff22 50%, transparent 100%)",
+                  animation: "shimmer 0.8s linear",
+                }}
+              />
+            )}
+          </button>
+
+          {/* Progress bar */}
+          <div className="h-1.5 w-full overflow-hidden border border-lab-ink/20 bg-lab-ink/10">
+            <div
+              className="h-full transition-all duration-1000"
+              style={{ width: `${pct * 100}%`, background: arcColor }}
+            />
+          </div>
+
+          {/* Click count */}
+          {clicks > 0 && (
+            <p className="mono-label text-[9px] opacity-50">
+              clicked {clicks}× · {clicks >= 3 ? "🥚 egg found" : `${3 - clicks} more for egg`}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Roast bubble */}
+      {roast && (
+        <div
+          key={roastKey}
+          className="mono-label max-w-xs border-2 border-lab-ink bg-card px-3 py-1.5 text-center text-xs"
+          style={{
+            animation: "fadeInUp 0.2s ease-out",
+          }}
+        >
+          {roast}
+        </div>
+      )}
+
+      {/* Footer hint */}
+      {!roast && (
+        <p className="mono-label text-[9px] opacity-40">
+          click the clock · {clicks === 0 ? "it does something" : "keep going"}
+        </p>
+      )}
+
+      <style>{`
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(8px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes shimmer {
+          from { transform: translateX(-100%); }
+          to   { transform: translateX(200%); }
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50%       { opacity: 0.6; }
+        }
+      `}</style>
     </div>
   );
 }
+
 
 function WindowPanel() {
   const [seconds, setSeconds] = useState(0);
@@ -1231,9 +1595,892 @@ function TrashPanel() {
 }
 
 
+const NOTE_COLORS = [
+  { label: "Yellow",  bg: "#ffb703", text: "#1e293b", accent: "#dc2626" },
+  { label: "Pink",    bg: "#fda4af", text: "#1e293b", accent: "#9f1239" },
+  { label: "Blue",    bg: "#93c5fd", text: "#1e2b4a", accent: "#1d4ed8" },
+  { label: "Green",   bg: "#86efac", text: "#14532d", accent: "#15803d" },
+  { label: "Purple",  bg: "#d8b4fe", text: "#3b0764", accent: "#7c3aed" },
+  { label: "White",   bg: "#f8fafc", text: "#1e293b", accent: "#64748b" },
+];
+
+const NOTE_EMOJIS = ["📌", "⚠️", "💡", "🔥", "✅", "❌", "📋", "🎯", "🧠", "💀"];
+
+const STICKY_STORAGE_KEY = "lab_escape_sticky_note_v1";
+
+function StickyNotePanel() {
+  const stickyNotes = useLab((s) => s.rt.stickyNotes || []);
+  const [colorIdx, setColorIdx] = useState(0);
+  const [title, setTitle] = useState("DON'T FORGET:");
+  const [body, setBody] = useState("SUBMIT NOTHING.\n:-)");
+  const [emoji, setEmoji] = useState("📌");
+  const [saved, setSaved] = useState(false);
+  const [shake, setShake] = useState(false);
+
+  const palette = NOTE_COLORS[colorIdx]!;
+
+  const handlePin = () => {
+    store.addStickyNote({
+      color: palette.bg,
+      textColor: palette.text,
+      accentColor: palette.accent,
+      title: title.trim() || "NOTE",
+      body: body.trim() || "...",
+      emoji,
+    });
+    setSaved(true);
+    setShake(true);
+    setTimeout(() => setShake(false), 500);
+    setTimeout(() => setSaved(false), 2000);
+    sound.play("pop");
+  };
+
+  const handleReset = () => {
+    store.resetStickyNotes();
+    setTitle("DON'T FORGET:");
+    setBody("SUBMIT NOTHING.\n:-)");
+    setEmoji("📌");
+    setColorIdx(0);
+    sound.play("click");
+  };
+
+  return (
+    <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto pr-1">
+
+      {/* Top Banner: Queue status */}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-2 border-lab-ink bg-card px-3 py-2">
+        <div className="flex items-center gap-2">
+          <span className="font-display text-sm tracking-wide">WALL STICKY NOTES QUEUE</span>
+          <Tag tone={stickyNotes.length >= 3 ? "red" : "green"}>
+            {stickyNotes.length}/3 ON WALL
+          </Tag>
+        </div>
+        <p className="mono-label text-[10px] opacity-75">
+          {stickyNotes.length >= 3
+            ? "⚠️ Queue full: Pinning note #4 will push out note #1 (oldest)."
+            : `💡 ${3 - stickyNotes.length} more slot(s) open on the wall.`}
+        </p>
+      </div>
+
+      {/* Active notes currently on wall */}
+      <div>
+        <p className="mono-label text-[10px] tracking-widest opacity-60 mb-1.5">
+          CURRENTLY VISIBLE ON WALL ({stickyNotes.length} OF 3)
+        </p>
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+          {stickyNotes.map((n, idx) => (
+            <div
+              key={n.id || idx}
+              className="relative flex flex-col justify-between border-2 border-lab-ink p-2.5 shadow-sm"
+              style={{ background: n.color || "#ffb703", minHeight: 110 }}
+            >
+              <div className="flex items-start justify-between gap-1">
+                <span className="mono-label text-[9px] font-bold opacity-60">
+                  SLOT #{idx + 1} {idx === 0 && stickyNotes.length >= 3 ? "(Next to exit)" : ""}
+                </span>
+                <span className="text-sm">{n.emoji}</span>
+              </div>
+              <div className="my-1">
+                <p className="font-mono text-[11px] font-bold leading-tight" style={{ color: n.textColor }}>
+                  {n.title}
+                </p>
+                <p className="font-mono text-[10px] font-extrabold whitespace-pre-wrap leading-tight mt-0.5" style={{ color: n.accentColor }}>
+                  {n.body}
+                </p>
+              </div>
+              <div className="flex items-center justify-between pt-1 border-t border-lab-ink/20">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTitle(n.title);
+                    setBody(n.body);
+                    setEmoji(n.emoji);
+                    const ci = NOTE_COLORS.findIndex((c) => c.bg === n.color);
+                    if (ci >= 0) setColorIdx(ci);
+                    sound.play("click");
+                  }}
+                  className="mono-label text-[9px] underline hover:opacity-100 opacity-70"
+                >
+                  ✎ Copy into Editor
+                </button>
+                {stickyNotes.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      store.deleteStickyNote(n.id);
+                      sound.play("pop");
+                    }}
+                    className="mono-label text-[9px] text-lab-red hover:font-bold opacity-80"
+                  >
+                    ✕ Remove
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Editor & Preview row */}
+      <div className="flex min-h-0 flex-1 flex-col gap-4 border-t-2 border-lab-ink/30 pt-3 md:flex-row">
+        
+        {/* Editor form */}
+        <div className="flex min-h-0 flex-1 flex-col gap-2.5">
+          <p className="mono-label text-[10px] tracking-widest opacity-60">CREATE / PIN NOTE</p>
+
+          {/* Color palette */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="mono-label text-[10px] opacity-70">COLOR:</span>
+            {NOTE_COLORS.map((c, i) => (
+              <button
+                key={c.label}
+                type="button"
+                title={c.label}
+                onClick={() => { setColorIdx(i); sound.play("click"); }}
+                className={`h-7 w-7 rounded-sm border-2 transition-all duration-100 hover:scale-110 ${
+                  colorIdx === i
+                    ? "border-lab-ink scale-125 shadow-md ring-2 ring-lab-ink/30"
+                    : "border-gray-400 opacity-80"
+                }`}
+                style={{ background: c.bg }}
+              />
+            ))}
+          </div>
+
+          {/* Emoji pin picker */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="mono-label text-[10px] opacity-70">PIN:</span>
+            {NOTE_EMOJIS.map((e) => (
+              <button
+                key={e}
+                type="button"
+                onClick={() => { setEmoji(e); sound.play("click"); }}
+                className={`text-lg transition-transform hover:scale-125 ${emoji === e ? "scale-125 opacity-100" : "opacity-50"}`}
+              >
+                {e}
+              </button>
+            ))}
+          </div>
+
+          {/* Title input */}
+          <div className="flex flex-col gap-0.5">
+            <label className="mono-label text-[10px] opacity-70">TITLE LINE (Max 24 chars):</label>
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value.slice(0, 24))}
+              maxLength={24}
+              className="brut-sm border-2 border-lab-ink bg-background px-2 py-1 font-mono text-sm uppercase outline-none focus:border-lab-blue"
+              placeholder="DON'T FORGET:"
+            />
+          </div>
+
+          {/* Body input */}
+          <div className="flex flex-col gap-0.5 flex-1">
+            <label className="mono-label text-[10px] opacity-70">NOTE MESSAGE (Max 80 chars, 3 lines max):</label>
+            <textarea
+              value={body}
+              onChange={(e) => setBody(e.target.value.slice(0, 80))}
+              maxLength={80}
+              rows={3}
+              className="brut-sm flex-1 resize-none border-2 border-lab-ink bg-background px-2 py-1.5 font-mono text-sm uppercase outline-none focus:border-lab-blue"
+              placeholder="Write your note..."
+            />
+            <p className="mono-label text-[9px] opacity-40 text-right">{body.length}/80</p>
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex gap-2">
+            <BrutButton
+              variant="go"
+              className="flex-1 font-bold"
+              onClick={handlePin}
+            >
+              {saved ? "✅ PINNED TO WALL!" : "📌 PIN TO WALL (+15 XP)"}
+            </BrutButton>
+            <BrutButton onClick={handleReset} className="text-xs">
+              🔄 RESET WALL
+            </BrutButton>
+          </div>
+        </div>
+
+        {/* Live Preview */}
+        <div className="flex flex-col items-center gap-2 md:w-52">
+          <p className="mono-label text-[10px] tracking-widest opacity-60">LIVE PREVIEW</p>
+
+          <div
+            className={`relative w-44 rounded-sm shadow-md transition-transform ${shake ? "rotate-1 scale-105" : "-rotate-1"}`}
+            style={{
+              background: palette.bg,
+              border: `3px solid #1e293b`,
+              padding: "14px 12px 12px",
+              minHeight: 150,
+              transition: "transform 0.3s, box-shadow 0.3s",
+              boxShadow: "3px 3px 0 #1e293b",
+            }}
+          >
+            {/* Top fold */}
+            <div className="absolute left-0 right-0 top-0 h-1 opacity-20" style={{ background: "#1e293b" }} />
+
+            {/* Emoji Pin */}
+            <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 text-lg drop-shadow">{emoji}</div>
+
+            {/* Content */}
+            <p
+              className="relative z-10 mb-1 text-[11px] font-bold uppercase leading-tight"
+              style={{ fontFamily: "var(--font-mono)", color: palette.text }}
+            >
+              {title || "TITLE"}
+            </p>
+            <p
+              className="relative z-10 mt-1 whitespace-pre-wrap text-[11px] font-black uppercase leading-snug"
+              style={{ fontFamily: "var(--font-mono)", color: palette.accent }}
+            >
+              {body || "your note here..."}
+            </p>
+          </div>
+
+          <p className="mono-label text-center text-[9px] opacity-40 max-w-[170px]">
+            Instantly visible on the lab wall when you hit PIN TO WALL.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================================================
+   CPU WORKSTATION RIG (INTERACTIVE HARDWARE TEARDOWN & OVERCLOCKED INTERNAL ENGINE)
+   ========================================================================================= */
+
+const COOLANT_THEMES = [
+  { name: "Cyber Cyan", fluid: "#06b6d4", glow: "rgba(6, 182, 212, 0.6)", hex: "#22d3ee" },
+  { name: "Toxic Acid", fluid: "#22c55e", glow: "rgba(34, 197, 94, 0.6)", hex: "#4ade80" },
+  { name: "Magma Red", fluid: "#ef4444", glow: "rgba(239, 68, 68, 0.6)", hex: "#f87171" },
+  { name: "Hyper Purple", fluid: "#a855f7", glow: "rgba(168, 85, 247, 0.6)", hex: "#c084fc" },
+  { name: "Quantum Amber", fluid: "#f59e0b", glow: "rgba(245, 158, 11, 0.6)", hex: "#fbbf24" },
+];
+
+function CpuPanel() {
+  const [viewMode, setViewMode] = useState<"chassis" | "internals" | "specs">("internals");
+  const [turboMode, setTurboMode] = useState(false);
+  const [fanSpeed, setFanSpeed] = useState<"quiet" | "balanced" | "jet">("balanced");
+  const [coolantIdx, setCoolantIdx] = useState(0);
+  const [benchmarking, setBenchmarking] = useState(false);
+  const [benchmarkScore, setBenchmarkScore] = useState<number | null>(null);
+  const [driveEjected, setDriveEjected] = useState(false);
+  const [ramDownloaded, setRamDownloaded] = useState(128);
+  const [activeComponent, setActiveComponent] = useState<string | null>("cpu");
+  const [tempOffset, setTempOffset] = useState(0);
+  const [livePower, setLivePower] = useState(485);
+  const [shakeRig, setShakeRig] = useState(false);
+
+  const coolant = COOLANT_THEMES[coolantIdx]!;
+
+  // Dynamic wattage & thermals fluctuation
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const base = turboMode ? 780 : benchmarking ? 920 : 450;
+      setLivePower(base + Math.floor(Math.random() * 45 - 20));
+      setTempOffset(Math.floor(Math.random() * 3 - 1));
+    }, 1200);
+    return () => clearInterval(interval);
+  }, [turboMode, benchmarking]);
+
+  const baseCpuTemp = turboMode ? 79 : benchmarking ? 91 : 41;
+  const cpuTemp = baseCpuTemp + tempOffset;
+  const baseGpuTemp = turboMode ? 71 : benchmarking ? 84 : 38;
+  const gpuTemp = baseGpuTemp + tempOffset;
+  const clockSpeed = turboMode ? "6.20 GHz" : benchmarking ? "5.90 GHz" : "5.40 GHz";
+  const fanRpm = fanSpeed === "quiet" ? 1100 : fanSpeed === "balanced" ? 2200 : 4800;
+
+  const toggleTurbo = () => {
+    const next = !turboMode;
+    setTurboMode(next);
+    setShakeRig(true);
+    setTimeout(() => setShakeRig(false), 600);
+    if (next) {
+      sound.play("power");
+      store.addXp(25, "Activated Rig Turbo Boost");
+      store.toast("warn", "🚀 TURBO BOOST 6.2 GHz!", "Coolant pump at 4800 RPM. Caution: Viva questions may melt.");
+    } else {
+      sound.play("click");
+    }
+  };
+
+  const runBenchmark = () => {
+    if (benchmarking) return;
+    setBenchmarking(true);
+    sound.play("glitch");
+    store.toast("system", "RUNNING 3D LAB-MARK 2026", "Stress testing RTX 4090 Ti with Quantum Path Tracing...");
+    setTimeout(() => {
+      setBenchmarking(false);
+      const score = Math.floor(38400 + Math.random() * 3200 + (turboMode ? 5000 : 0));
+      setBenchmarkScore(score);
+      store.addXp(30, "Completed Rig GPU Benchmark");
+      sound.play("success");
+      store.toast("achievement", `BENCHMARK COMPLETE: ${score.toLocaleString()} PTS`, "Rank 1 in College Campus Leaderboard!");
+    }, 2800);
+  };
+
+  const downloadMoreRam = () => {
+    sound.play("pop");
+    const nextRam = ramDownloaded + 32;
+    setRamDownloaded(nextRam);
+    store.toast("system", `DOWNLOADED +32GB RAM!`, `Total Virtual Memory: ${nextRam} GB DDR5. (It's free real estate!)`);
+  };
+
+  const toggleDrive = () => {
+    setDriveEjected((e) => !e);
+    sound.play(driveEjected ? "click" : "pop");
+  };
+
+  return (
+    <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto pr-1 select-none">
+      
+      {/* Top Header & Mode Navigation */}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-2 border-lab-ink bg-card p-2.5 shadow-sm">
+        <div className="flex items-center gap-2">
+          <span className="font-display text-base tracking-wide">LAB-404 WORKSTATION RIG</span>
+          <Tag tone={turboMode ? "red" : "blue"}>{turboMode ? "⚡ OVERCLOCKED 6.2GHz" : "STABLE 5.4GHz"}</Tag>
+          <Tag tone="yellow">{livePower}W DRAW</Tag>
+        </div>
+
+        {/* View Switcher */}
+        <div className="flex items-center gap-1">
+          <BrutButton
+            variant={viewMode === "internals" ? "go" : "default"}
+            className="text-xs px-2.5 py-1"
+            onClick={() => { setViewMode("internals"); sound.play("click"); }}
+          >
+            🔬 RIG INTERNALS
+          </BrutButton>
+          <BrutButton
+            variant={viewMode === "specs" ? "go" : "default"}
+            className="text-xs px-2.5 py-1"
+            onClick={() => { setViewMode("specs"); sound.play("click"); }}
+          >
+            📋 SPECS SHEET
+          </BrutButton>
+          <BrutButton
+            variant={viewMode === "chassis" ? "go" : "default"}
+            className="text-xs px-2.5 py-1"
+            onClick={() => { setViewMode("chassis"); sound.play("click"); }}
+          >
+            🧰 CHASSIS EXTERIOR
+          </BrutButton>
+        </div>
+      </div>
+
+      {/* Main Interactive Workstation Area */}
+      {viewMode === "internals" && (
+        <div className="flex min-h-0 flex-1 flex-col gap-3 lg:flex-row">
+          
+          {/* Left: Interactive Open Glass Rig Visualizer */}
+          <div className="relative flex flex-1 flex-col items-center justify-center overflow-hidden border-3 border-lab-ink bg-[#0c1222] p-4 shadow-md min-h-[380px]">
+            
+            {/* Ambient Waterloop Back-Glow */}
+            <div
+              className="pointer-events-none absolute inset-0 opacity-20 transition-all duration-700"
+              style={{
+                background: `radial-gradient(circle at 50% 50%, ${coolant.fluid} 0%, transparent 70%)`,
+              }}
+            />
+
+            {/* Benchmark / Stress Test Laser Overlay */}
+            {benchmarking && (
+              <div
+                className="pointer-events-none absolute inset-0 opacity-30"
+                style={{
+                  backgroundImage: "repeating-linear-gradient(0deg, #22d3ee 0, #22d3ee 2px, transparent 0, transparent 18px)",
+                  animation: "pulse 0.4s infinite alternate",
+                }}
+              />
+            )}
+
+            {/* Motherboard & Internal Hardware SVG */}
+            <div className={`relative transition-transform duration-200 ${shakeRig ? "scale-95 rotate-1" : "scale-100"}`}>
+              <svg width="440" height="340" viewBox="0 0 440 340" className="drop-shadow-2xl">
+                
+                {/* 1. Motherboard PCB Plate */}
+                <rect x="20" y="20" width="400" height="300" rx="6" fill="#131d2e" stroke="#1e293b" strokeWidth="4" />
+                {/* Gold Traces */}
+                <path d="M40 40 H160 V100 H220 M280 40 V160 H380 M50 260 H200 V200 H320 M360 220 V280" stroke="#f59e0b" strokeWidth="1.5" opacity="0.35" fill="none" />
+
+                {/* 2. CPU Socket & Liquid Cooling Waterblock */}
+                <g
+                  className="cursor-pointer transition-transform hover:scale-105"
+                  onClick={() => { setActiveComponent("cpu"); sound.play("click"); }}
+                >
+                  <rect
+                    x="75"
+                    y="55"
+                    width="115"
+                    height="115"
+                    rx="10"
+                    fill="#0f172a"
+                    stroke={activeComponent === "cpu" ? "#38bdf8" : "#334155"}
+                    strokeWidth={activeComponent === "cpu" ? "4" : "2.5"}
+                  />
+                  {/* Waterblock Circular Pump Display */}
+                  <circle cx="132" cy="112" r="42" fill="#030712" stroke={coolant.fluid} strokeWidth="4" />
+                  <circle cx="132" cy="112" r="42" fill="none" stroke={coolant.glow} strokeWidth="8" opacity="0.4" />
+                  
+                  {/* Digital Pump LCD Display */}
+                  <text x="132" y="104" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="14" fontWeight="900" fill="#f8fafc">
+                    {cpuTemp}°C
+                  </text>
+                  <text x="132" y="118" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="8" fontWeight="bold" fill={coolant.hex}>
+                    {clockSpeed}
+                  </text>
+                  <text x="132" y="128" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="6.5" fill="#94a3b8">
+                    {fanRpm} RPM
+                  </text>
+                  {/* Rotating waterblock flow impeller */}
+                  <g style={{ transformOrigin: "132px 112px", animation: `spin ${turboMode ? "0.6s" : "1.8s"} linear infinite` }}>
+                    <circle cx="132" cy="78" r="2.5" fill={coolant.fluid} />
+                    <circle cx="166" cy="112" r="2.5" fill={coolant.fluid} />
+                    <circle cx="132" cy="146" r="2.5" fill={coolant.fluid} />
+                    <circle cx="98" cy="112" r="2.5" fill={coolant.fluid} />
+                  </g>
+                </g>
+
+                {/* 3. DDR5 RAM Slots (4 Sticks with RGB Bars) */}
+                <g
+                  className="cursor-pointer transition-transform hover:scale-105"
+                  onClick={() => { setActiveComponent("ram"); sound.play("click"); }}
+                >
+                  <rect
+                    x="215"
+                    y="50"
+                    width="60"
+                    height="125"
+                    rx="4"
+                    fill="#0f172a"
+                    stroke={activeComponent === "ram" ? "#38bdf8" : "#334155"}
+                    strokeWidth={activeComponent === "ram" ? "3" : "1.5"}
+                  />
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <g key={i} transform={`translate(${222 + i * 13} 56)`}>
+                      <rect width="8" height="112" rx="1.5" fill="#1e293b" stroke="#000" strokeWidth="1" />
+                      {/* RGB Top Diffuser Bar */}
+                      <rect
+                        width="8"
+                        height="18"
+                        rx="1"
+                        fill={turboMode ? "#f43f5e" : ["#38bdf8", "#818cf8", "#c084fc", "#f472b6"][i]}
+                        style={{ animation: `pulse ${0.8 + i * 0.2}s infinite alternate` }}
+                      />
+                      <text x="4" y="65" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="4.5" fill="#64748b" transform={`rotate(-90 4 65)`}>
+                        DDR5
+                      </text>
+                    </g>
+                  ))}
+                </g>
+
+                {/* 4. GPU: NVIDIA RTX 4090 Ti Beast */}
+                <g
+                  className="cursor-pointer transition-transform hover:scale-105"
+                  onClick={() => { setActiveComponent("gpu"); sound.play("click"); }}
+                >
+                  {/* PCIe Armor / GPU Shroud */}
+                  <rect
+                    x="45"
+                    y="190"
+                    width="345"
+                    height="85"
+                    rx="6"
+                    fill="#0f172a"
+                    stroke={activeComponent === "gpu" ? "#38bdf8" : "#475569"}
+                    strokeWidth={activeComponent === "gpu" ? "4" : "2"}
+                  />
+                  {/* Heatsink Fins Pattern */}
+                  <line x1="55" y1="232" x2="380" y2="232" stroke="#334155" strokeWidth="1.5" strokeDasharray="3 3" />
+                  
+                  {/* 3 Massive Spinning Fans */}
+                  {[105, 215, 325].map((fx, fi) => (
+                    <g key={fi}>
+                      <circle cx={fx} cy="232" r="30" fill="#020617" stroke="#334155" strokeWidth="2.5" />
+                      <circle cx={fx} cy="232" r="30" fill="none" stroke={turboMode ? "#ef4444" : coolant.fluid} strokeWidth="2" opacity="0.5" />
+                      {/* Fan Blades Rotation */}
+                      <g style={{ transformOrigin: `${fx}px 232px`, animation: `spin ${benchmarking ? "0.4s" : turboMode ? "0.8s" : "2.2s"} linear infinite` }}>
+                        <path d={`M${fx} 232 Q${fx + 14} 206 ${fx + 24} 210 Q${fx + 10} 224 ${fx} 232 Z`} fill="#475569" />
+                        <path d={`M${fx} 232 Q${fx + 24} 242 ${fx + 20} 256 Q${fx + 8} 246 ${fx} 232 Z`} fill="#475569" />
+                        <path d={`M${fx} 232 Q${fx - 14} 258 ${fx - 24} 254 Q${fx - 10} 240 ${fx} 232 Z`} fill="#475569" />
+                        <path d={`M${fx} 232 Q${fx - 24} 222 ${fx - 20} 208 Q${fx - 8} 218 ${fx} 232 Z`} fill="#475569" />
+                      </g>
+                      {/* Center Hub */}
+                      <circle cx={fx} cy="232" r="9" fill="#0f172a" stroke="#64748b" strokeWidth="1.5" />
+                      <text x={fx} y="235" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="6" fontWeight="bold" fill="#fff">
+                        4090
+                      </text>
+                    </g>
+                  ))}
+
+                  {/* GPU Badge */}
+                  <rect x="55" y="196" width="130" height="14" rx="2" fill="#020617" />
+                  <text x="62" y="206" fontFamily="var(--font-mono)" fontSize="7" fontWeight="bold" fill="#38bdf8">
+                    RTX 4090 Ti · 24GB ({gpuTemp}°C)
+                  </text>
+                </g>
+
+                {/* 5. Liquid Cooling Rigid Tubing (Connecting CPU to Radiator) */}
+                <path
+                  d="M132 55 V35 H360 V190"
+                  fill="none"
+                  stroke={coolant.fluid}
+                  strokeWidth="8"
+                  strokeLinecap="round"
+                  opacity="0.85"
+                />
+                <path
+                  d="M132 55 V35 H360 V190"
+                  fill="none"
+                  stroke="#ffffff"
+                  strokeWidth="2"
+                  strokeDasharray="8 12"
+                  strokeLinecap="round"
+                  style={{ animation: "dash 1s linear infinite" }}
+                />
+
+                {/* 6. M.2 NVMe SSD Heatsink */}
+                <g
+                  className="cursor-pointer"
+                  onClick={() => { setActiveComponent("ssd"); sound.play("click"); }}
+                >
+                  <rect x="80" y="174" width="90" height="12" rx="2" fill="#1e293b" stroke={activeComponent === "ssd" ? "#38bdf8" : "#475569"} strokeWidth="1.5" />
+                  <text x="85" y="183" fontFamily="var(--font-mono)" fontSize="6" fill="#38bdf8" fontWeight="bold">GEN5 NVMe RAID-0 [14 GB/s]</text>
+                </g>
+
+                {/* 7. PSU & Power Rail at Top-Right */}
+                <g
+                  className="cursor-pointer"
+                  onClick={() => { setActiveComponent("psu"); sound.play("click"); }}
+                >
+                  <rect x="290" y="45" width="120" height="70" rx="4" fill="#020617" stroke={activeComponent === "psu" ? "#38bdf8" : "#334155"} strokeWidth="2" />
+                  <text x="300" y="65" fontFamily="var(--font-mono)" fontSize="9" fontWeight="bold" fill="#f59e0b">1200W TITANIUM</text>
+                  <text x="300" y="80" fontFamily="var(--font-mono)" fontSize="7.5" fill="#94a3b8">EFFICIENCY: 96.4%</text>
+                  <rect x="300" y="90" width="100" height="8" rx="2" fill="#1e293b" />
+                  <rect x="300" y="90" width={`${Math.min(100, (livePower / 1200) * 100)}`} height="8" rx="2" fill={turboMode ? "#ef4444" : "#10b981"} />
+                </g>
+
+              </svg>
+            </div>
+
+            {/* Bottom Status bar inside viewport */}
+            <div className="mt-2 flex w-full flex-wrap items-center justify-between border-t border-slate-700/60 pt-2 text-[10px] text-slate-300 font-mono">
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full animate-ping" style={{ background: coolant.fluid }} />
+                <span>PUMP: {fanRpm} RPM · COOLANT: {coolant.name.toUpperCase()}</span>
+              </span>
+              <span>CLICK ANY COMPONENT FOR DIAGNOSTICS & TUNING</span>
+            </div>
+          </div>
+
+          {/* Right: Hardware Tuning & Interactive Controls Panel */}
+          <div className="flex flex-col gap-3 md:w-80">
+            
+            {/* Component Inspector Card */}
+            <div className="border-2 border-lab-ink bg-card p-3 shadow-sm">
+              <div className="flex items-center justify-between border-b border-lab-ink/20 pb-1.5 mb-2">
+                <span className="font-display text-sm font-bold text-lab-ink">
+                  {activeComponent === "cpu" && "🧠 QUANTUM i9-9900KS CPU"}
+                  {activeComponent === "gpu" && "🎮 NVIDIA RTX 4090 Ti 24GB"}
+                  {activeComponent === "ram" && "⚡ 128GB DDR5-7200 RGB RAM"}
+                  {activeComponent === "ssd" && "💾 8TB Gen5 NVMe RAID-0"}
+                  {activeComponent === "psu" && "⚡ 1200W TITANIUM 80+ PSU"}
+                </span>
+                <Tag tone={turboMode ? "red" : "green"}>
+                  {activeComponent === "cpu" ? `${cpuTemp}°C` : activeComponent === "gpu" ? `${gpuTemp}°C` : "ACTIVE"}
+                </Tag>
+              </div>
+
+              {/* Dynamic details based on selection */}
+              {activeComponent === "cpu" && (
+                <div className="space-y-1.5 text-[11px] font-mono">
+                  <p>• <strong>Cores:</strong> 32 Cores / 64 Threads @ {clockSpeed}</p>
+                  <p>• <strong>Delidded Die:</strong> Direct-Die Liquid Metal applied</p>
+                  <p>• <strong>Status:</strong> {turboMode ? "🔥 Thermal limit nearing ceiling!" : "Normal Lab Operations"}</p>
+                  <div className="mt-2 pt-1 border-t border-lab-ink/20">
+                    <BrutButton
+                      variant={turboMode ? "danger" : "go"}
+                      className="w-full text-xs font-bold"
+                      onClick={toggleTurbo}
+                    >
+                      {turboMode ? "⚡ DISABLE TURBO BOOST" : "🚀 ENGAGE TURBO (6.2 GHz)"}
+                    </BrutButton>
+                  </div>
+                </div>
+              )}
+
+              {activeComponent === "gpu" && (
+                <div className="space-y-1.5 text-[11px] font-mono">
+                  <p>• <strong>VRAM:</strong> 24GB GDDR6X @ 1,008 GB/s</p>
+                  <p>• <strong>Compute:</strong> 16,384 CUDA Cores · 512 Tensor Cores</p>
+                  <p>• <strong>Workload:</strong> 99% (Running Minesweeper + 48 Chrome tabs)</p>
+                  {benchmarkScore && (
+                    <p className="font-bold text-lab-green">🏆 Last Score: {benchmarkScore.toLocaleString()} PTS</p>
+                  )}
+                  <div className="mt-2 pt-1 border-t border-lab-ink/20">
+                    <BrutButton
+                      variant="go"
+                      disabled={benchmarking}
+                      className="w-full text-xs font-bold"
+                      onClick={runBenchmark}
+                    >
+                      {benchmarking ? "🔥 BENCHMARKING..." : "💥 RUN 3D STRESS TEST"}
+                    </BrutButton>
+                  </div>
+                </div>
+              )}
+
+              {activeComponent === "ram" && (
+                <div className="space-y-1.5 text-[11px] font-mono">
+                  <p>• <strong>Capacity:</strong> {ramDownloaded} GB (Quad-Channel)</p>
+                  <p>• <strong>Speed:</strong> 7200 MT/s CL28 XMP 3.0</p>
+                  <p>• <strong>Allocation:</strong> 112GB consumed by IDE cache</p>
+                  <div className="mt-2 pt-1 border-t border-lab-ink/20">
+                    <BrutButton
+                      className="w-full text-xs font-bold"
+                      onClick={downloadMoreRam}
+                    >
+                      📥 DOWNLOAD +32GB MORE RAM (FREE)
+                    </BrutButton>
+                  </div>
+                </div>
+              )}
+
+              {activeComponent === "ssd" && (
+                <div className="space-y-1.5 text-[11px] font-mono">
+                  <p>• <strong>Speed:</strong> Read 14,200 MB/s · Write 12,800 MB/s</p>
+                  <p>• <strong>Storage:</strong> 8.0 TB Total (7.9 TB memes & practicals)</p>
+                  <p>• <strong>IOPS:</strong> 2,400,000 Random 4K Operations</p>
+                </div>
+              )}
+
+              {activeComponent === "psu" && (
+                <div className="space-y-1.5 text-[11px] font-mono">
+                  <p>• <strong>Output:</strong> {livePower}W / 1200W Maximum</p>
+                  <p>• <strong>Rating:</strong> 80-Plus Titanium Certified (96%)</p>
+                  <p>• <strong>Surge Protection:</strong> Withstands college campus power cuts</p>
+                </div>
+              )}
+            </div>
+
+            {/* RGB Coolant Loop Customizer */}
+            <div className="border-2 border-lab-ink bg-card p-2.5 shadow-sm space-y-2">
+              <span className="mono-label text-[10px] opacity-70">💧 LIQUID COOLANT THEME:</span>
+              <div className="flex flex-wrap gap-1.5">
+                {COOLANT_THEMES.map((th, i) => (
+                  <button
+                    key={th.name}
+                    type="button"
+                    title={th.name}
+                    onClick={() => { setCoolantIdx(i); sound.play("click"); }}
+                    className={`flex items-center gap-1 px-2 py-1 text-[10px] font-mono rounded-sm border-2 font-bold transition-transform ${
+                      coolantIdx === i ? "border-lab-ink scale-105 shadow-sm" : "border-slate-300 opacity-70"
+                    }`}
+                    style={{ background: th.fluid, color: i === 0 || i === 1 || i === 4 ? "#000" : "#fff" }}
+                  >
+                    {th.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Fan Speed Controller */}
+            <div className="border-2 border-lab-ink bg-card p-2.5 shadow-sm space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="mono-label text-[10px] opacity-70">🌀 FAN PROFILE:</span>
+                <span className="mono-label text-[10px] font-bold">{fanRpm} RPM</span>
+              </div>
+              <div className="grid grid-cols-3 gap-1">
+                {(["quiet", "balanced", "jet"] as const).map((spd) => (
+                  <BrutButton
+                    key={spd}
+                    className="text-[10px] py-1 capitalize"
+                    variant={fanSpeed === spd ? "go" : "default"}
+                    onClick={() => { setFanSpeed(spd); sound.play("click"); }}
+                  >
+                    {spd === "jet" ? "🔥 JET" : spd}
+                  </BrutButton>
+                ))}
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* View 2: Complete Hardware Specification Sheet */}
+      {viewMode === "specs" && (
+        <div className="border-2 border-lab-ink bg-card p-4 shadow-sm space-y-4">
+          <div className="flex items-center justify-between border-b-2 border-lab-ink pb-2">
+            <div>
+              <h3 className="font-display text-xl font-bold">LAB 404 TITAN WORKSTATION ENGINE</h3>
+              <p className="mono-label text-xs opacity-75">Architecture Overview & Benchmark Telemetry</p>
+            </div>
+            <Tag tone="green">CERTIFIED LAB GRADE</Tag>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            
+            {/* Spec Box 1: Compute & Graphics */}
+            <div className="border-2 border-lab-ink/30 bg-background p-3 space-y-2">
+              <p className="font-display text-sm font-bold text-lab-red">⚡ CORE COMPUTE & ACCELERATORS</p>
+              <table className="w-full text-xs font-mono">
+                <tbody>
+                  <tr className="border-b border-lab-ink/10">
+                    <td className="py-1 opacity-70">PROCESSOR</td>
+                    <td className="py-1 font-bold">Quantum Core i9-9900KS (32C / 64T)</td>
+                  </tr>
+                  <tr className="border-b border-lab-ink/10">
+                    <td className="py-1 opacity-70">BASE / BOOST</td>
+                    <td className="py-1 font-bold">4.2 GHz / 6.2 GHz All-Core Liquid Turbo</td>
+                  </tr>
+                  <tr className="border-b border-lab-ink/10">
+                    <td className="py-1 opacity-70">L3 SMART CACHE</td>
+                    <td className="py-1 font-bold">64 MB Ultra-Low Latency SRAM</td>
+                  </tr>
+                  <tr className="border-b border-lab-ink/10">
+                    <td className="py-1 opacity-70">GRAPHICS ENGINE</td>
+                    <td className="py-1 font-bold">NVIDIA GeForce RTX 4090 Ti (24GB VRAM)</td>
+                  </tr>
+                  <tr>
+                    <td className="py-1 opacity-70">CUDA / TENSOR</td>
+                    <td className="py-1 font-bold">16,384 CUDA / 512 Tensor Gen-4 Cores</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* Spec Box 2: Memory, Storage & Power */}
+            <div className="border-2 border-lab-ink/30 bg-background p-3 space-y-2">
+              <p className="font-display text-sm font-bold text-lab-blue">💾 MEMORY, STORAGE & POWER</p>
+              <table className="w-full text-xs font-mono">
+                <tbody>
+                  <tr className="border-b border-lab-ink/10">
+                    <td className="py-1 opacity-70">SYSTEM MEMORY</td>
+                    <td className="py-1 font-bold">128 GB Quad-Channel DDR5-7200MHz CL28</td>
+                  </tr>
+                  <tr className="border-b border-lab-ink/10">
+                    <td className="py-1 opacity-70">PRIMARY STORAGE</td>
+                    <td className="py-1 font-bold">8TB PCIe Gen5 x4 NVMe (14,200 MB/s read)</td>
+                  </tr>
+                  <tr className="border-b border-lab-ink/10">
+                    <td className="py-1 opacity-70">COOLING LOOP</td>
+                    <td className="py-1 font-bold">Custom 420mm Hardline Waterblock Loop</td>
+                  </tr>
+                  <tr className="border-b border-lab-ink/10">
+                    <td className="py-1 opacity-70">POWER SUPPLY</td>
+                    <td className="py-1 font-bold">1200W Titanium 80-Plus (96.4% Efficiency)</td>
+                  </tr>
+                  <tr>
+                    <td className="py-1 opacity-70">OPERATING SYSTEM</td>
+                    <td className="py-1 font-bold">LAB-OS Pro 64-bit Kernel Edition v4.0.4</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+          </div>
+
+          {/* Humorous Research Log */}
+          <div className="border-l-4 border-lab-yellow bg-card/60 p-3 text-xs font-mono space-y-1">
+            <p className="font-bold text-lab-ink">📝 LAB INVENTORY LOG #8841:</p>
+            <p className="opacity-80">
+              "This monster rig was procured via a ₹12,00,000 AI Research Grant marked as 'Bio-Chemical Simulation Engine'. 
+              In reality, students use it to play Crysis, mine virtual coins, and compile 4 lines of C++ code in 0.0001 seconds."
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* View 3: Exterior Chassis & Drive Bay Interactions */}
+      {viewMode === "chassis" && (
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center border-2 border-lab-ink bg-card p-6 shadow-sm gap-4">
+          <p className="mono-label text-xs tracking-widest opacity-60">RETRO BEIGE SLEEPER CHASSIS</p>
+
+          <div className="relative border-4 border-lab-ink bg-[#d4cca9] p-6 shadow-xl w-64 rounded-sm flex flex-col items-center gap-4">
+            
+            {/* 5.25" Optical Drive with Animated Tray */}
+            <div className="w-full border-2 border-lab-ink bg-[#b8ad86] p-2 flex items-center justify-between shadow-inner">
+              <span className="font-mono text-[9px] font-bold">52X CD-RW DRIVE</span>
+              <button
+                type="button"
+                onClick={toggleDrive}
+                className="brut-sm px-2 py-0.5 text-[9px] font-bold bg-lab-paper hover:bg-white"
+              >
+                {driveEjected ? "⏏ CLOSE" : "⏏ EJECT"}
+              </button>
+            </div>
+
+            {/* Ejected Tray Simulation */}
+            {driveEjected && (
+              <div
+                className="w-full border-2 border-slate-700 bg-slate-300 p-2 text-center text-[10px] font-mono shadow-md animate-bounce"
+              >
+                💿 LAB_ESCAPE_BACKUP_1999.ISO (EJECTED)
+              </div>
+            )}
+
+            {/* Property Badge */}
+            <div className="border-2 border-lab-ink bg-lab-paper px-4 py-2 text-center w-4/5 shadow-sm">
+              <p className="font-mono text-[9px] font-bold text-lab-ink">PROPERTY OF</p>
+              <p className="font-display text-sm font-black text-lab-red">LAB 404 DEPT</p>
+            </div>
+
+            {/* Massive Front Vent Fan */}
+            <div className="relative h-24 w-24 rounded-full border-4 border-lab-ink bg-[#222] flex items-center justify-center">
+              <div
+                className="h-20 w-20 rounded-full border-2 border-dashed border-slate-500"
+                style={{ animation: `spin ${turboMode ? "0.4s" : "1.5s"} linear infinite` }}
+              />
+              <span className="absolute font-mono text-[8px] font-bold text-white opacity-80">
+                {turboMode ? "6.2 GHz" : "5.4 GHz"}
+              </span>
+            </div>
+
+            {/* Power Buttons & Turbo Switch */}
+            <div className="flex w-full items-center justify-around border-t-2 border-lab-ink/30 pt-3">
+              <div className="flex items-center gap-1.5">
+                <span className="h-3 w-3 rounded-full bg-lab-green border border-lab-ink animate-pulse" />
+                <span className="font-mono text-[9px] font-bold">PWR</span>
+              </div>
+              <BrutButton
+                variant={turboMode ? "danger" : "default"}
+                className="text-[10px] px-2.5 py-1 font-bold"
+                onClick={toggleTurbo}
+              >
+                🚀 TURBO {turboMode ? "ON" : "OFF"}
+              </BrutButton>
+            </div>
+
+          </div>
+
+          <p className="mono-label text-[10px] opacity-60">
+            Looks like an innocent 90s office PC on the outside • Beast overclocked monster on the inside.
+          </p>
+        </div>
+      )}
+
+      {/* Global CSS for waterblock & particles */}
+      <style>{`
+        @keyframes dash {
+          to { stroke-dashoffset: -20; }
+        }
+      `}</style>
+
+    </div>
+  );
+}
+
+
+
 function WhiteboardPanel() {
+
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+
 
   type Tool = "brush" | "line" | "rect" | "circle" | "text" | "sticky";
   const [activeTool, setActiveTool] = useState<Tool>("brush");
@@ -1522,13 +2769,26 @@ function WhiteboardPanel() {
   };
 
   const COLORS = [
-    { name: "Ink Black", value: "#1e293b" },
+    { name: "Ink Black",    value: "#1e293b" },
+    { name: "Charcoal",     value: "#475569" },
+    { name: "White",        value: "#f8fafc" },
     { name: "Marker Blue", value: "#2563eb" },
-    { name: "Alert Red", value: "#dc2626" },
-    { name: "Green", value: "#16a34a" },
-    { name: "Yellow", value: "#eab308" },
-    { name: "Purple", value: "#9333ea" },
-    { name: "Cyan", value: "#06b6d4" },
+    { name: "Sky Blue",    value: "#38bdf8" },
+    { name: "Alert Red",   value: "#dc2626" },
+    { name: "Pink",        value: "#ec4899" },
+    { name: "Orange",      value: "#f97316" },
+    { name: "Amber",       value: "#f59e0b" },
+    { name: "Yellow",      value: "#eab308" },
+    { name: "Green",       value: "#16a34a" },
+    { name: "Lime",        value: "#84cc16" },
+    { name: "Teal",        value: "#14b8a6" },
+    { name: "Cyan",        value: "#06b6d4" },
+    { name: "Purple",      value: "#9333ea" },
+    { name: "Violet",      value: "#7c3aed" },
+    { name: "Indigo",      value: "#4f46e5" },
+    { name: "Brown",       value: "#92400e" },
+    { name: "Rose",        value: "#f43f5e" },
+    { name: "Magenta",     value: "#d946ef" },
   ];
 
   const TOOLS: { id: Tool; label: string; icon: string }[] = [
@@ -1585,25 +2845,55 @@ function WhiteboardPanel() {
         </div>
 
         {/* Color Palette */}
-        <div className="flex items-center gap-1">
-          <span className="mono-label text-[10px] opacity-70">COLOR:</span>
-          {COLORS.map((c) => (
-            <button
-              key={c.value}
-              type="button"
-              aria-label={c.name}
-              onClick={() => {
-                setColor(c.value);
-                setIsEraser(false);
-                sound.play("click");
-              }}
-              style={{ background: c.value }}
-              className={`h-5 w-5 rounded-sm border-2 transition-transform ${!isEraser && color === c.value
-                  ? "border-lab-ink scale-125 shadow-md ring-2 ring-lab-blue"
-                  : "border-gray-400 opacity-80 hover:opacity-100"
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="mono-label text-[10px] opacity-70 shrink-0">COLOR:</span>
+          <div className="flex flex-wrap gap-1">
+            {COLORS.map((c) => (
+              <button
+                key={c.value}
+                type="button"
+                title={c.name}
+                onClick={() => {
+                  setColor(c.value);
+                  setIsEraser(false);
+                  sound.play("click");
+                }}
+                style={{
+                  background: c.value,
+                  outline: !isEraser && color === c.value ? `3px solid #1e293b` : "none",
+                  outlineOffset: "2px",
+                  boxShadow: !isEraser && color === c.value ? `0 0 0 1px #fff inset` : "none",
+                  border: c.value === "#f8fafc" ? "1.5px solid #cbd5e1" : "none",
+                }}
+                className={`h-6 w-6 rounded-sm transition-all duration-100 hover:scale-110 ${
+                  !isEraser && color === c.value ? "scale-125 shadow-md" : "opacity-90 hover:opacity-100"
                 }`}
-            />
-          ))}
+              />
+            ))}
+          </div>
+          {/* Active color preview + custom picker */}
+          <div className="flex items-center gap-1 ml-1">
+            <div className="relative h-6 w-6" title="Pick custom color">
+              <div
+                className="h-6 w-6 rounded-sm border-2 border-lab-ink shadow-inner cursor-pointer"
+                style={{ background: color }}
+              />
+              <input
+                type="color"
+                value={color}
+                onChange={(e) => {
+                  setColor(e.target.value);
+                  setIsEraser(false);
+                }}
+                title="Custom color"
+                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+              />
+            </div>
+            <span className="mono-label text-[9px] opacity-50" style={{ fontVariantNumeric: "tabular-nums" }}>
+              {color.toUpperCase()}
+            </span>
+          </div>
+
         </div>
 
         {/* Thickness */}
@@ -1819,10 +3109,16 @@ export function ObjectPanel({ id }: { id: ObjectId }) {
         return <TrashPanel />;
       case "whiteboard":
         return <WhiteboardPanel />;
+      case "stickynote":
+        return <StickyNotePanel />;
+      case "cpu":
+        return <CpuPanel />;
+
       default:
         return <AchievementsApp />;
     }
   };
+
 
   return (
     <div className="window-in flex h-full flex-col">

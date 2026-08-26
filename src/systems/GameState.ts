@@ -15,6 +15,41 @@ export interface Toast {
   body?: string | undefined;
 }
 
+export interface StickyNoteItem {
+  id: string;
+  color: string;
+  textColor: string;
+  accentColor: string;
+  title: string;
+  body: string;
+  emoji: string;
+  createdAt: number;
+}
+
+export const DEFAULT_STICKY_NOTES: StickyNoteItem[] = [
+  {
+    id: "default-note-1",
+    color: "#ffb703",
+    textColor: "#1e293b",
+    accentColor: "#dc2626",
+    title: "DON'T FORGET:",
+    body: "SUBMIT NOTHING.\n:-)",
+    emoji: "📌",
+    createdAt: 1,
+  },
+];
+
+function loadSavedStickyNotes(): StickyNoteItem[] {
+  if (typeof window === "undefined") return DEFAULT_STICKY_NOTES;
+  try {
+    const raw = sessionStorage.getItem("lab_escape_sticky_notes_v2");
+    if (!raw) return DEFAULT_STICKY_NOTES;
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.length > 0) return parsed.slice(-3);
+  } catch {}
+  return DEFAULT_STICKY_NOTES;
+}
+
 export interface Runtime {
   booted: boolean;
   focus: ObjectId | null;
@@ -29,10 +64,12 @@ export interface Runtime {
   now: number;
   whiteboardData: string | null;
   customNotices: Notice[];
+  stickyNotes: StickyNoteItem[];
   typedPassword: string;
   loginAuthenticated: boolean;
   activePressedKey: string | null;
 }
+
 
 export interface LabState {
   save: SaveData;
@@ -66,11 +103,13 @@ class LabStore {
       now: Date.now(),
       whiteboardData: null,
       customNotices: [],
+      stickyNotes: loadSavedStickyNotes(),
       typedPassword: "",
       loginAuthenticated: false,
       activePressedKey: null,
     },
   };
+
   private listeners = new Set<() => void>();
   private toastSeq = 1;
   private hydrated = false;
@@ -354,6 +393,47 @@ class LabStore {
     const next = this.state.rt.customNotices.filter((n) => n.id !== id);
     this.setRt({ customNotices: next });
   }
+
+  /* ---------- sticky notes on wall (max 3, FIFO queue) ---------- */
+  addStickyNote(note: Omit<StickyNoteItem, "id" | "createdAt">) {
+    const newItem: StickyNoteItem = {
+      ...note,
+      id: "note-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6),
+      createdAt: Date.now(),
+    };
+    // Keep max 3 notes. When 4th added, 1st (oldest) drops off (FIFO).
+    let next = [...this.state.rt.stickyNotes, newItem];
+    if (next.length > 3) {
+      next = next.slice(next.length - 3);
+    }
+    this.setRt({ stickyNotes: next });
+    try {
+      sessionStorage.setItem("lab_escape_sticky_notes_v2", JSON.stringify(next));
+    } catch {}
+    this.addXp(15, "Pinned a sticky note to the wall");
+    this.toast("system", "STICKY NOTE PINNED", `"${note.title || "Note"}" is now visible on the wall!`);
+  }
+
+  deleteStickyNote(id: string) {
+    let next = this.state.rt.stickyNotes.filter((n) => n.id !== id);
+    if (next.length === 0) {
+      next = [...DEFAULT_STICKY_NOTES];
+    }
+    this.setRt({ stickyNotes: next });
+    try {
+      sessionStorage.setItem("lab_escape_sticky_notes_v2", JSON.stringify(next));
+    } catch {}
+  }
+
+  resetStickyNotes() {
+    const next = [...DEFAULT_STICKY_NOTES];
+    this.setRt({ stickyNotes: next });
+    try {
+      sessionStorage.setItem("lab_escape_sticky_notes_v2", JSON.stringify(next));
+    } catch {}
+    this.toast("system", "STICKY NOTES RESET", "Wall notes returned to default.");
+  }
+
 
   glitchBurst(intensity = 1) {
     if (this.state.save.settings.reducedMotion) return;

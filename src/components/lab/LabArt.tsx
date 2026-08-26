@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { store, useLab } from "../../systems/GameState";
+
 import type { Phase } from "../../systems/types";
 
 interface KeyCapItem {
@@ -28,6 +29,8 @@ export function LabArt({ phase, boot }: { phase: Phase; boot: boolean }) {
   const typedPassword = useLab((s) => s.rt.typedPassword || "");
   const loginAuthenticated = useLab((s) => s.rt.loginAuthenticated);
   const activePressedKey = useLab((s) => s.rt.activePressedKey);
+  const stickyNotes = useLab((s) => s.rt.stickyNotes || []);
+
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
@@ -187,19 +190,92 @@ export function LabArt({ phase, boot }: { phase: Phase; boot: boolean }) {
         </text>
       </g>
 
-      {/* ─── 6. STICKY NOTES ON WALL ─── */}
+      {/* ─── 6. STICKY NOTES ON WALL (Dynamic FIFO Queue of up to 3) ─── */}
       <g transform="translate(380 155) rotate(-6)">
         <rect width="70" height="66" fill="var(--color-lab-yellow)" stroke="var(--color-lab-ink)" strokeWidth="3.5" />
         <text x="35" y="24" textAnchor="middle" fontFamily="var(--font-mono)" fontWeight="bold" fontSize="9" fill="var(--color-lab-ink)">WORK</text>
         <text x="35" y="38" textAnchor="middle" fontFamily="var(--font-mono)" fontWeight="bold" fontSize="9" fill="var(--color-lab-ink)">HARD?</text>
         <text x="35" y="54" textAnchor="middle" fontFamily="var(--font-mono)" fontWeight="900" fontSize="10" fill="var(--color-lab-red)">NAH.</text>
       </g>
-      <g transform="translate(265 410) rotate(3)">
-        <rect width="86" height="78" fill="#ffb703" stroke="var(--color-lab-ink)" strokeWidth="3.5" />
-        <text x="43" y="22" textAnchor="middle" fontFamily="var(--font-mono)" fontWeight="bold" fontSize="8" fill="var(--color-lab-ink)">DON'T FORGET:</text>
-        <text x="43" y="40" textAnchor="middle" fontFamily="var(--font-mono)" fontWeight="900" fontSize="9" fill="var(--color-lab-red)">SUBMIT NOTHING.</text>
-        <text x="43" y="60" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="12" fill="var(--color-lab-ink)">:-)</text>
-      </g>
+
+      {/* Dynamic wall notes */}
+      {stickyNotes.slice(0, 3).map((note, index) => {
+        const slots = [
+          "translate(250 380) rotate(-3)",
+          "translate(340 370) rotate(4)",
+          "translate(295 455) rotate(-1)",
+        ];
+        const transform = slots[index] || slots[0];
+        const rawLines = (note.body || "").split("\n").filter(Boolean);
+        const displayLines: string[] = [];
+        for (const line of rawLines) {
+          if (line.length > 12) {
+            displayLines.push(line.slice(0, 12));
+            if (line.length > 12) displayLines.push(line.slice(12, 24));
+          } else {
+            displayLines.push(line);
+          }
+        }
+        const linesToShow = displayLines.slice(0, 3);
+
+        return (
+          <g
+            key={note.id || index}
+            transform={transform}
+            style={{ cursor: "pointer" }}
+            onClick={() => store.focusObject("stickynote")}
+            role="button"
+            aria-label={`Sticky Note #${index + 1}: ${note.title}`}
+          >
+            <rect
+              width="82"
+              height="74"
+              fill={note.color || "#ffb703"}
+              stroke="var(--color-lab-ink)"
+              strokeWidth="3.5"
+              rx="1"
+            />
+            {/* Top fold subtle line */}
+            <line x1="0" y1="5" x2="82" y2="5" stroke="var(--color-lab-ink)" strokeWidth="1" opacity="0.15" />
+            {/* Hover shimmer overlay */}
+            <rect width="82" height="74" fill="white" opacity="0" className="hover:opacity-15" style={{ transition: "opacity 0.15s" }} />
+            {/* Pin emoji */}
+            <text x="41" y="9" textAnchor="middle" fontSize="9">{note.emoji || "📌"}</text>
+            {/* Title */}
+            <text
+              x="41"
+              y="22"
+              textAnchor="middle"
+              fontFamily="var(--font-mono)"
+              fontWeight="bold"
+              fontSize="7.5"
+              fill={note.textColor || "var(--color-lab-ink)"}
+            >
+              {(note.title || "NOTE:").slice(0, 14)}
+            </text>
+            {/* Body */}
+            <text
+              x="41"
+              y="35"
+              textAnchor="middle"
+              fontFamily="var(--font-mono)"
+              fontWeight="900"
+              fontSize="8"
+              fill={note.accentColor || "var(--color-lab-red)"}
+            >
+              {linesToShow.map((line, li) => (
+                <tspan key={li} x="41" dy={li === 0 ? 0 : 10}>{line}</tspan>
+              ))}
+            </text>
+            {/* Slot index & click hint */}
+            <text x="41" y="68" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="4.5" fill="var(--color-lab-ink)" opacity="0.45">
+              #{index + 1} • CLICK TO EDIT
+            </text>
+          </g>
+        );
+      })}
+
+
 
       {/* ─── 7. REAL-TIME ANALOG WALL CLOCK ─── */}
       <g transform="translate(1290 135)">
@@ -347,16 +423,7 @@ export function LabArt({ phase, boot }: { phase: Phase; boot: boolean }) {
         <path d="M17 58 Q22 63 27 58" stroke="var(--color-lab-ink)" strokeWidth="2" fill="none" />
       </g>
 
-      {/* Notebook & USB */}
-      <g transform="translate(250 655)">
-        <rect width="118" height="96" rx="4" fill="var(--color-lab-ink)" transform="rotate(-6)" />
-        <rect x="4" y="4" width="110" height="88" rx="3" fill="var(--color-lab-paper)" stroke="var(--color-lab-ink)" strokeWidth="4" transform="rotate(-6)" />
-        <rect x="18" y="24" width="76" height="34" fill="var(--color-lab-yellow)" stroke="var(--color-lab-ink)" strokeWidth="3" transform="rotate(-6)" />
-        <text x="56" y="44" textAnchor="middle" fontFamily="var(--font-mono)" fontWeight="bold" fontSize="8" fill="var(--color-lab-ink)" transform="rotate(-6)">PASS KARNA DO :)</text>
-        {/* USB Flash Drive */}
-        <rect x="122" y="55" width="28" height="14" fill="var(--color-lab-red)" stroke="var(--color-lab-ink)" strokeWidth="3" rx="2" />
-        <rect x="146" y="58" width="10" height="8" fill="#ccc" stroke="var(--color-lab-ink)" strokeWidth="2" />
-      </g>
+
 
       {/* ─── 9. CRT COMPUTER MONITOR WITH LIVE TYPING TERMINAL ─── */}
       <g transform="translate(480 300)">
@@ -626,23 +693,49 @@ export function LabArt({ phase, boot }: { phase: Phase; boot: boolean }) {
         </g>
       </g>
 
-      {/* ─── 11. CPU TOWER WITH CACTUS (Positioned at x=1060 to the right of Smartphone) ─── */}
-      <g transform="translate(1060 375)">
+      {/* ─── 11. CPU TOWER WITH CACTUS (Clickable interactive Workstation Tower) ─── */}
+      <g
+        transform="translate(1060 375)"
+        style={{ cursor: "pointer" }}
+        onClick={() => store.focusObject("cpu")}
+        role="button"
+        aria-label="Workstation CPU Tower - Click to open chassis"
+      >
         <rect width="125" height="240" fill="#d4cca9" stroke="var(--color-lab-ink)" strokeWidth="7" />
+        {/* Hover shimmer */}
+        <rect width="125" height="240" fill="white" opacity="0" className="hover:opacity-15" style={{ transition: "opacity 0.15s" }} />
+
+        {/* 5.25" Drive Bays */}
         <rect x="18" y="20" width="89" height="20" fill="var(--color-lab-ink)" opacity="0.4" />
+        <rect x="24" y="28" width="60" height="4" fill="var(--color-lab-paper)" opacity="0.6" />
+        <circle cx="95" cy="30" r="2.5" fill="var(--color-lab-paper)" opacity="0.8" />
+        
         <rect x="18" y="48" width="89" height="14" fill="var(--color-lab-ink)" opacity="0.25" />
+        <rect x="24" y="53" width="40" height="4" fill="var(--color-lab-paper)" opacity="0.6" />
+
         {/* Badge: Property of Lab 404 */}
-        <rect x="18" y="170" width="89" height="30" fill="var(--color-lab-paper)" stroke="var(--color-lab-ink)" strokeWidth="3" />
-        <text x="62" y="184" textAnchor="middle" fontFamily="var(--font-mono)" fontWeight="bold" fontSize="7" fill="var(--color-lab-ink)">PROPERTY OF</text>
-        <text x="62" y="194" textAnchor="middle" fontFamily="var(--font-mono)" fontWeight="bold" fontSize="7" fill="var(--color-lab-ink)">LAB 404</text>
-        {/* Fan / Vent Grill (Static) */}
-        <circle cx="62" cy="110" r="30" fill="none" stroke="var(--color-lab-ink)" strokeWidth="5" />
-        <line x1="38" y1="110" x2="86" y2="110" stroke="var(--color-lab-ink)" strokeWidth="3" />
-        <line x1="62" y1="86" x2="62" y2="134" stroke="var(--color-lab-ink)" strokeWidth="3" />
-        <circle cx="62" cy="110" r="10" fill="var(--color-lab-ink)" opacity="0.4" />
+        <rect x="18" y="165" width="89" height="34" fill="var(--color-lab-paper)" stroke="var(--color-lab-ink)" strokeWidth="3" />
+        <text x="62" y="179" textAnchor="middle" fontFamily="var(--font-mono)" fontWeight="bold" fontSize="7" fill="var(--color-lab-ink)">PROPERTY OF</text>
+        <text x="62" y="191" textAnchor="middle" fontFamily="var(--font-mono)" fontWeight="900" fontSize="8" fill="var(--color-lab-red)">LAB 404 RIG</text>
+
+        {/* Fan / Vent Grill with spinning effect */}
+        <circle cx="62" cy="108" r="32" fill="#222" stroke="var(--color-lab-ink)" strokeWidth="5" />
+        <g style={{ transformOrigin: "62px 108px", animation: "spin 1.8s linear infinite" }}>
+          {/* 4 Fan Blades */}
+          <path d="M62 108 Q72 82 86 86 Q76 100 62 108 Z" fill="#444" />
+          <path d="M62 108 Q88 118 86 132 Q72 122 62 108 Z" fill="#444" />
+          <path d="M62 108 Q52 134 38 130 Q48 116 62 108 Z" fill="#444" />
+          <path d="M62 108 Q36 98 38 84 Q52 94 62 108 Z" fill="#444" />
+        </g>
+        <circle cx="62" cy="108" r="32" fill="none" stroke="var(--color-lab-ink)" strokeWidth="5" />
+        <line x1="36" y1="108" x2="88" y2="108" stroke="var(--color-lab-ink)" strokeWidth="3.5" />
+        <line x1="62" y1="82" x2="62" y2="134" stroke="var(--color-lab-ink)" strokeWidth="3.5" />
+        <circle cx="62" cy="108" r="10" fill="var(--color-lab-red)" stroke="var(--color-lab-ink)" strokeWidth="2" />
+
         {/* LEDs */}
-        <circle cx="30" cy="214" r="5" fill="var(--color-lab-green)" className="led" stroke="var(--color-lab-ink)" strokeWidth="2" />
-        <circle cx="48" cy="214" r="5" fill="var(--color-lab-yellow)" stroke="var(--color-lab-ink)" strokeWidth="2" />
+        <circle cx="30" cy="216" r="5" fill="var(--color-lab-green)" className="led" stroke="var(--color-lab-ink)" strokeWidth="2" />
+        <circle cx="48" cy="216" r="5" fill="var(--color-lab-yellow)" stroke="var(--color-lab-ink)" strokeWidth="2" />
+        <text x="84" y="219" fontFamily="var(--font-mono)" fontSize="6" fontWeight="bold" fill="var(--color-lab-ink)" opacity="0.6">CLICK ME</text>
 
         {/* Potted Cactus on top */}
         <g transform="translate(38 -54)">
@@ -654,6 +747,7 @@ export function LabArt({ phase, boot }: { phase: Phase; boot: boolean }) {
           <path d="M29 3 H36 V14 H29 Z" fill="var(--color-lab-green)" stroke="var(--color-lab-ink)" strokeWidth="3" />
         </g>
       </g>
+
 
       {/* ─── 12. PEN HOLDER & ORGANIZER (Positioned to the right of CPU Tower) ─── */}
       <g transform="translate(1195 540)">

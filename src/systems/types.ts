@@ -8,7 +8,11 @@ export type ObjectId =
   | "clock"
   | "window"
   | "trash"
-  | "whiteboard";
+  | "whiteboard"
+  | "stickynote"
+  | "cpu";
+
+
 
 export type AppId =
   | "terminal"
