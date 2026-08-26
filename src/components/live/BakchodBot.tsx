@@ -72,10 +72,11 @@ Rules:
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: "llama-3.3-70b-versatile",
+      model: "qwen/qwen3.8-27b",
       messages: formattedMessages,
       stream: true,
     }),
+
   });
 
   if (!groqRes.ok) {

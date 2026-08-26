@@ -50,7 +50,7 @@ export async function POST(request: Request) {
     const modelMessages = await convertToModelMessages(messages as UIMessage[]);
 
     const result = streamText({
-      model: groq("llama-3.3-70b-versatile"),
+      model: groq("qwen/qwen3.8-27b"),
       system: SYSTEM_PROMPT,
       messages: modelMessages,
     });
