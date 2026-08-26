@@ -16,14 +16,119 @@ function textOf(m: UIMessage) {
   return m.parts.map((p) => (p.type === "text" ? p.text : "")).join("");
 }
 
+async function customChatFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  try {
+    const res = await fetch(input, init);
+    const contentType = res.headers.get("content-type") || "";
+    if (res.ok && !contentType.includes("text/html")) {
+      return res;
+    }
+  } catch (err) {
+    console.warn("Backend /api/chat route unreachable, falling back to direct Groq API...", err);
+  }
+
+  const apiKey = (import.meta.env as any).VITE_GROQ_API_KEY;
+
+
+  if (!apiKey) {
+    throw new Error("Missing Groq API Key (VITE_GROQ_API_KEY).");
+  }
+
+  const bodyData = init?.body ? JSON.parse(init.body as string) : {};
+  const uiMessages = bodyData.messages || [];
+
+  const formattedMessages = [
+    {
+      role: "system",
+      content: `You are "BAKCHOD BOT", the unofficial lab assistant inside a college lab simulator called LAB ESCAPE.
+
+Personality: a witty Indian college senior — friendly, casual bakchodi, light Hinglish jokes, roasts the boring lab now and then. Never rude, never NSFW, never mean.
+
+But you are actually competent: you answer coding questions, debugging, DSA, maths, physics, chemistry, assignments, viva prep and general life questions properly and correctly.
+
+Rules:
+- Lead with the real answer. Jokes are seasoning, not the meal.
+- Use markdown, fenced code blocks with the language tag, and short explanations.
+- Be concise unless asked for depth.
+- If unsure, say so plainly instead of making things up.`,
+    },
+    ...uiMessages.map((m: any) => {
+      let content = "";
+      if (typeof m.content === "string") content = m.content;
+      else if (Array.isArray(m.parts)) {
+        content = m.parts.map((p: any) => (p.type === "text" ? p.text : "")).join("");
+      }
+      return {
+        role: m.role || "user",
+        content: content || "",
+      };
+    }),
+  ];
+
+  const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: "llama-3.3-70b-versatile",
+      messages: formattedMessages,
+      stream: true,
+    }),
+  });
+
+  if (!groqRes.ok) {
+    const errText = await groqRes.text();
+    throw new Error(`Groq API Error (${groqRes.status}): ${errText}`);
+  }
+
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
+
+  const transformStream = new TransformStream({
+    async transform(chunk, controller) {
+      const text = decoder.decode(chunk, { stream: true });
+      const lines = text.split("\n");
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed === "data: [DONE]") continue;
+        if (trimmed.startsWith("data: ")) {
+          try {
+            const data = JSON.parse(trimmed.slice(6));
+            const delta = data.choices?.[0]?.delta?.content;
+            if (delta) {
+              controller.enqueue(encoder.encode(`0:${JSON.stringify(delta)}\n`));
+            }
+          } catch {
+            // Ignore partial JSON
+          }
+        }
+      }
+    },
+  });
+
+  const stream = groqRes.body?.pipeThrough(transformStream);
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "x-vercel-ai-ui-stream": "1",
+    },
+  });
+}
+
 export function BakchodBot() {
   const [input, setInput] = useState("");
   const boxRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { messages, sendMessage, status, error } = useChat({
-    transport: new DefaultChatTransport({ api: "/api/chat" }),
+    transport: new DefaultChatTransport({
+      api: "/api/chat",
+      fetch: customChatFetch as any,
+    }),
   });
+
 
   const busy = status === "submitted" || status === "streaming";
 
