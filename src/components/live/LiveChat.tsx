@@ -9,6 +9,7 @@ import {
   getSessionStart,
   heartbeat,
   joinAsName,
+  markOffline,
   readIdentity,
   ROOM,
   sendMessage,
@@ -16,6 +17,7 @@ import {
   type LiveMessage,
   type LivePlayer,
 } from "../../systems/liveChat";
+
 import { BrutButton, Tag } from "../ui/brut";
 
 function timeOf(iso: string) {
@@ -137,14 +139,17 @@ export function LiveChat() {
           <BrutButton
             className="text-[10px]"
             onClick={() => {
+              void markOffline(identity.id);
               clearIdentity();
               setIdentity(null);
               setMessages([]);
+              setOnline([]);
               store.toast("system", "SESSION WIPED", "LabChat identity & session data wiped from this machine.");
             }}
           >
             WIPE SESSION
           </BrutButton>
+
         </div>
       </div>
 

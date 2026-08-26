@@ -96,6 +96,15 @@ export async function heartbeat(id: string) {
   await supabase.from("lab_players").update({ last_seen: new Date().toISOString() }).eq("id", id);
 }
 
+/** Sets last_seen to epoch so the player is instantly removed from online lists. */
+export async function markOffline(id: string) {
+  await supabase
+    .from("lab_players")
+    .update({ last_seen: new Date(0).toISOString() })
+    .eq("id", id);
+}
+
+
 export async function fetchOnline(): Promise<LivePlayer[]> {
   const since = new Date(Date.now() - 70_000).toISOString();
   const { data } = await supabase
