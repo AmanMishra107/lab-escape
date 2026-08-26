@@ -1849,22 +1849,28 @@ function StickyNotePanel() {
 }
 
 /* =========================================================================================
-   CPU WORKSTATION RIG (INTERACTIVE HARDWARE TEARDOWN & OVERCLOCKED INTERNAL ENGINE)
+   CPU WORKSTATION RIG (ULTRA-ADVANCED HARDWARE ENGINE, SILICON LAB & THERMAL FLIR)
    ========================================================================================= */
 
 const COOLANT_THEMES = [
-  { name: "Cyber Cyan", fluid: "#06b6d4", glow: "rgba(6, 182, 212, 0.6)", hex: "#22d3ee" },
-  { name: "Toxic Acid", fluid: "#22c55e", glow: "rgba(34, 197, 94, 0.6)", hex: "#4ade80" },
-  { name: "Magma Red", fluid: "#ef4444", glow: "rgba(239, 68, 68, 0.6)", hex: "#f87171" },
-  { name: "Hyper Purple", fluid: "#a855f7", glow: "rgba(168, 85, 247, 0.6)", hex: "#c084fc" },
-  { name: "Quantum Amber", fluid: "#f59e0b", glow: "rgba(245, 158, 11, 0.6)", hex: "#fbbf24" },
+  { name: "Cyber Cyan", fluid: "#06b6d4", glow: "rgba(6, 182, 212, 0.7)", hex: "#22d3ee" },
+  { name: "Toxic Acid", fluid: "#22c55e", glow: "rgba(34, 197, 94, 0.7)", hex: "#4ade80" },
+  { name: "Magma Red", fluid: "#ef4444", glow: "rgba(239, 68, 68, 0.7)", hex: "#f87171" },
+  { name: "Hyper Purple", fluid: "#a855f7", glow: "rgba(168, 85, 247, 0.7)", hex: "#c084fc" },
+  { name: "Quantum Amber", fluid: "#f59e0b", glow: "rgba(245, 158, 11, 0.7)", hex: "#fbbf24" },
+  { name: "Cryo LN2 Frost", fluid: "#38bdf8", glow: "rgba(224, 242, 254, 0.9)", hex: "#e0f2fe" },
 ];
 
+const POST_CODES = ["A0", "99", "55", "FF", "C4", "38", "D2", "B4"];
+
 function CpuPanel() {
-  const [viewMode, setViewMode] = useState<"chassis" | "internals" | "specs">("internals");
+  const [viewMode, setViewMode] = useState<"internals" | "silicon" | "telemetry" | "specs" | "chassis">("internals");
+  const [thermalVision, setThermalVision] = useState(false);
+  const [ln2Mode, setLn2Mode] = useState(false);
   const [turboMode, setTurboMode] = useState(false);
   const [fanSpeed, setFanSpeed] = useState<"quiet" | "balanced" | "jet">("balanced");
   const [coolantIdx, setCoolantIdx] = useState(0);
+  const [pumpScreenMode, setPumpScreenMode] = useState<0 | 1 | 2 | 3>(0);
   const [benchmarking, setBenchmarking] = useState(false);
   const [benchmarkScore, setBenchmarkScore] = useState<number | null>(null);
   const [driveEjected, setDriveEjected] = useState(false);
@@ -1873,35 +1879,63 @@ function CpuPanel() {
   const [tempOffset, setTempOffset] = useState(0);
   const [livePower, setLivePower] = useState(485);
   const [shakeRig, setShakeRig] = useState(false);
+  const [postCode, setPostCode] = useState("A0");
+  const [bsodActive, setBsodActive] = useState(false);
 
-  const coolant = COOLANT_THEMES[coolantIdx]!;
+  // Silicon Overclocking Sliders
+  const [ocRatio, setOcRatio] = useState(54);
+  const [ocVoltage, setOcVoltage] = useState(1.32);
+  const [ocDram, setOcDram] = useState(7200);
+  const [ocTested, setOcTested] = useState<"none" | "stable" | "crashed">("none");
 
-  // Dynamic wattage & thermals fluctuation
+  const coolant = ln2Mode ? COOLANT_THEMES[5]! : COOLANT_THEMES[coolantIdx]!;
+
+  // Dynamic telemetry loop
   useEffect(() => {
     const interval = setInterval(() => {
-      const base = turboMode ? 780 : benchmarking ? 920 : 450;
-      setLivePower(base + Math.floor(Math.random() * 45 - 20));
+      const base = ln2Mode ? 280 : turboMode ? 780 : benchmarking ? 940 : 460;
+      setLivePower(base + Math.floor(Math.random() * 40 - 20));
       setTempOffset(Math.floor(Math.random() * 3 - 1));
-    }, 1200);
+      if (Math.random() < 0.25) {
+        setPostCode(POST_CODES[Math.floor(Math.random() * POST_CODES.length)]!);
+      }
+    }, 1100);
     return () => clearInterval(interval);
-  }, [turboMode, benchmarking]);
+  }, [turboMode, benchmarking, ln2Mode]);
 
-  const baseCpuTemp = turboMode ? 79 : benchmarking ? 91 : 41;
-  const cpuTemp = baseCpuTemp + tempOffset;
-  const baseGpuTemp = turboMode ? 71 : benchmarking ? 84 : 38;
-  const gpuTemp = baseGpuTemp + tempOffset;
-  const clockSpeed = turboMode ? "6.20 GHz" : benchmarking ? "5.90 GHz" : "5.40 GHz";
-  const fanRpm = fanSpeed === "quiet" ? 1100 : fanSpeed === "balanced" ? 2200 : 4800;
+  // Thermals calculation
+  const baseCpuTemp = ln2Mode ? -196 : turboMode ? 82 : benchmarking ? 93 : 42;
+  const cpuTemp = ln2Mode ? -196 : baseCpuTemp + tempOffset;
+  const baseGpuTemp = ln2Mode ? -120 : turboMode ? 74 : benchmarking ? 86 : 39;
+  const gpuTemp = ln2Mode ? -120 : baseGpuTemp + tempOffset;
+  const clockSpeed = ln2Mode ? "7.40 GHz" : turboMode ? `${(ocRatio / 10 + 0.6).toFixed(2)} GHz` : `${(ocRatio / 10).toFixed(2)} GHz`;
+  const fanRpm = ln2Mode ? 6000 : fanSpeed === "quiet" ? 1100 : fanSpeed === "balanced" ? 2300 : 5000;
+
+  // Toggle LN2 (Liquid Nitrogen) Extreme Mode
+  const toggleLn2 = () => {
+    const next = !ln2Mode;
+    setLn2Mode(next);
+    setShakeRig(true);
+    setTimeout(() => setShakeRig(false), 800);
+    if (next) {
+      sound.play("power");
+      store.addXp(40, "Poured Liquid Nitrogen over CPU");
+      store.toast("achievement", "❄️ CRYO LN2 SUBZERO: -196°C!", "All thermal limits demolished. 7.40 GHz World Record unlocked!");
+    } else {
+      sound.play("click");
+      store.toast("system", "LN2 DEWAR EVAPORATED", "Returning to liquid coolant loop.");
+    }
+  };
 
   const toggleTurbo = () => {
     const next = !turboMode;
     setTurboMode(next);
     setShakeRig(true);
-    setTimeout(() => setShakeRig(false), 600);
+    setTimeout(() => setShakeRig(false), 500);
     if (next) {
       sound.play("power");
       store.addXp(25, "Activated Rig Turbo Boost");
-      store.toast("warn", "🚀 TURBO BOOST 6.2 GHz!", "Coolant pump at 4800 RPM. Caution: Viva questions may melt.");
+      store.toast("warn", `🚀 TURBO ENGAGED (${clockSpeed})!`, "Coolant pump ramped to maximum flow rate.");
     } else {
       sound.play("click");
     }
@@ -1911,15 +1945,40 @@ function CpuPanel() {
     if (benchmarking) return;
     setBenchmarking(true);
     sound.play("glitch");
-    store.toast("system", "RUNNING 3D LAB-MARK 2026", "Stress testing RTX 4090 Ti with Quantum Path Tracing...");
+    store.toast("system", "RUNNING 3D LAB-MARK ULTRA", "Rendering Quantum Path-Tracing & FurMark Stress Matrix...");
     setTimeout(() => {
       setBenchmarking(false);
-      const score = Math.floor(38400 + Math.random() * 3200 + (turboMode ? 5000 : 0));
+      const bonus = ln2Mode ? 15000 : turboMode ? 6000 : 0;
+      const score = Math.floor(41200 + Math.random() * 2800 + bonus);
       setBenchmarkScore(score);
-      store.addXp(30, "Completed Rig GPU Benchmark");
+      store.addXp(35, "GPU 3D Benchmark Test Completed");
       sound.play("success");
-      store.toast("achievement", `BENCHMARK COMPLETE: ${score.toLocaleString()} PTS`, "Rank 1 in College Campus Leaderboard!");
-    }, 2800);
+      store.toast("achievement", `BENCHMARK SCORE: ${score.toLocaleString()} PTS`, "Rank 1 in University Computing Grid!");
+    }, 2600);
+  };
+
+  const testSiliconOverclock = () => {
+    // Stability calculation: high ratio requires sufficient voltage
+    const requiredVoltage = 1.15 + (ocRatio - 50) * 0.022;
+    const isStable = ocVoltage >= requiredVoltage || ln2Mode;
+
+    sound.play("click");
+    if (isStable) {
+      setOcTested("stable");
+      sound.play("success");
+      store.addXp(30, "Verified Silicon Lottery Stability");
+      store.toast("achievement", "🏆 GOLDEN SAMPLE SILICON: 100% STABLE", `${(ocRatio / 10).toFixed(2)} GHz verified at ${ocVoltage.toFixed(2)}V!`);
+    } else {
+      setOcTested("crashed");
+      sound.play("glitch");
+      setBsodActive(true);
+      setTimeout(() => {
+        setBsodActive(false);
+        setOcRatio(54);
+        setOcVoltage(1.32);
+        store.toast("warn", "BIOS WATCHDOG RESET", "Voltage was too low for multiplier. Clock restored to safe defaults.");
+      }, 3500);
+    }
   };
 
   const downloadMoreRam = () => {
@@ -1934,279 +1993,416 @@ function CpuPanel() {
     sound.play(driveEjected ? "click" : "pop");
   };
 
+  const cyclePumpScreen = () => {
+    setPumpScreenMode((m) => ((m + 1) % 4) as 0 | 1 | 2 | 3);
+    sound.play("click");
+  };
+
+  const playPostBeep = () => {
+    sound.play("click");
+    store.toast("system", "BIOS POST CODE [A0]", "1 Short Beep: All 32 Cores, RTX 4090 Ti & Quad-RAM Healthy.");
+  };
+
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto pr-1 select-none">
-      
-      {/* Top Header & Mode Navigation */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-2 border-lab-ink bg-card p-2.5 shadow-sm">
+    <div className="relative flex h-full min-h-0 flex-col gap-3 overflow-y-auto pr-1 select-none">
+
+      {/* BSOD Crash Overlay Simulation */}
+      {bsodActive && (
+        <div className="absolute inset-0 z-50 flex flex-col justify-between bg-[#00479e] p-8 text-white font-mono shadow-2xl animate-pulse">
+          <div className="space-y-4">
+            <h1 className="font-display text-4xl sm:text-6xl">:(</h1>
+            <h2 className="text-xl font-bold">YOUR LAB WORKSTATION RAN INTO A PROBLEM AND MUST RESTART.</h2>
+            <p className="text-sm opacity-90">
+              Stop code: <code>CLOCK_WATCHDOG_TIMEOUT_UNSTABLE_SILICON</code>
+            </p>
+            <p className="text-xs opacity-75">
+              Reason: Voltage {ocVoltage.toFixed(2)}V insufficient for ratio {ocRatio}x. Vcore droop detected.
+            </p>
+          </div>
+          <div className="text-xs opacity-80 border-t border-white/20 pt-4">
+            Auto-recovering BIOS in 3 seconds... Reverting to safe failsafe profiles.
+          </div>
+        </div>
+      )}
+
+      {/* Top Header & Cyber Mode Nav */}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-2 border-lab-ink bg-card p-2 shadow-sm">
         <div className="flex items-center gap-2">
-          <span className="font-display text-base tracking-wide">LAB-404 WORKSTATION RIG</span>
-          <Tag tone={turboMode ? "red" : "blue"}>{turboMode ? "⚡ OVERCLOCKED 6.2GHz" : "STABLE 5.4GHz"}</Tag>
+          <span className="font-display text-sm sm:text-base font-black tracking-wide">
+            LAB-404 WORKSTATION ENGINE
+          </span>
+          <Tag tone={ln2Mode ? "blue" : turboMode ? "red" : "green"}>
+            {ln2Mode ? "❄️ LN2 CRYO -196°C" : turboMode ? `🔥 TURBO ${clockSpeed}` : `STABLE ${clockSpeed}`}
+          </Tag>
           <Tag tone="yellow">{livePower}W DRAW</Tag>
+          <button
+            type="button"
+            onClick={playPostBeep}
+            title="Click to test BIOS Post code"
+            className="mono-label text-[10px] bg-slate-200 hover:bg-slate-300 px-1.5 py-0.5 rounded border border-lab-ink font-bold"
+          >
+            POST: {postCode} 🔔
+          </button>
         </div>
 
-        {/* View Switcher */}
-        <div className="flex items-center gap-1">
+        {/* View Switcher Tabs */}
+        <div className="flex flex-wrap items-center gap-1">
           <BrutButton
             variant={viewMode === "internals" ? "go" : "default"}
-            className="text-xs px-2.5 py-1"
+            className="text-[11px] px-2 py-1"
             onClick={() => { setViewMode("internals"); sound.play("click"); }}
           >
-            🔬 RIG INTERNALS
+            🔬 RIG SCHEMATIC
+          </BrutButton>
+          <BrutButton
+            variant={viewMode === "silicon" ? "go" : "default"}
+            className="text-[11px] px-2 py-1"
+            onClick={() => { setViewMode("silicon"); sound.play("click"); }}
+          >
+            🧪 SILICON LAB
+          </BrutButton>
+          <BrutButton
+            variant={viewMode === "telemetry" ? "go" : "default"}
+            className="text-[11px] px-2 py-1"
+            onClick={() => { setViewMode("telemetry"); sound.play("click"); }}
+          >
+            📊 OSCILLOSCOPE
           </BrutButton>
           <BrutButton
             variant={viewMode === "specs" ? "go" : "default"}
-            className="text-xs px-2.5 py-1"
+            className="text-[11px] px-2 py-1"
             onClick={() => { setViewMode("specs"); sound.play("click"); }}
           >
-            📋 SPECS SHEET
+            📋 SPECS
           </BrutButton>
           <BrutButton
             variant={viewMode === "chassis" ? "go" : "default"}
-            className="text-xs px-2.5 py-1"
+            className="text-[11px] px-2 py-1"
             onClick={() => { setViewMode("chassis"); sound.play("click"); }}
           >
-            🧰 CHASSIS EXTERIOR
+            🧰 CHASSIS
           </BrutButton>
         </div>
       </div>
 
-      {/* Main Interactive Workstation Area */}
+      {/* VIEW 1: ADVANCED RIG SCHEMATIC & INTERACTIVE MOTHERBOARD */}
       {viewMode === "internals" && (
         <div className="flex min-h-0 flex-1 flex-col gap-3 lg:flex-row">
           
-          {/* Left: Interactive Open Glass Rig Visualizer */}
-          <div className="relative flex flex-1 flex-col items-center justify-center overflow-hidden border-3 border-lab-ink bg-[#0c1222] p-4 shadow-md min-h-[380px]">
+          {/* Main Visualizer Canvas Area */}
+          <div className="relative flex flex-1 flex-col items-center justify-center overflow-hidden border-3 border-lab-ink bg-[#070d18] p-4 shadow-md min-h-[400px]">
             
-            {/* Ambient Waterloop Back-Glow */}
+            {/* Top Toolbar overlay on rig */}
+            <div className="absolute top-2 left-3 right-3 z-10 flex items-center justify-between pointer-events-auto">
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => { setThermalVision((v) => !v); sound.play("click"); }}
+                  className={`brut-sm text-[10px] font-mono font-bold px-2 py-1 transition-all ${
+                    thermalVision ? "bg-lab-red text-white scale-105 shadow-md" : "bg-card text-foreground opacity-80"
+                  }`}
+                >
+                  🔥 {thermalVision ? "FLIR THERMAL: ON" : "FLIR HEATMAP: OFF"}
+                </button>
+                <button
+                  type="button"
+                  onClick={toggleLn2}
+                  className={`brut-sm text-[10px] font-mono font-bold px-2 py-1 transition-all ${
+                    ln2Mode ? "bg-cyan-300 text-slate-900 scale-105 shadow-md ring-2 ring-white" : "bg-card text-foreground opacity-80"
+                  }`}
+                >
+                  ❄️ {ln2Mode ? "LN2 POUR: ACTIVE (-196°C)" : "LN2 NITROGEN DEWAR"}
+                </button>
+              </div>
+
+              <span className="mono-label text-[9px] text-slate-400">
+                PUMP LCD MODE: {pumpScreenMode === 0 ? "TELEMETRY" : pumpScreenMode === 1 ? "PIXEL CAT" : pumpScreenMode === 2 ? "SPECTRUM" : "FLAME"}
+              </span>
+            </div>
+
+            {/* Ambient Background Aura */}
             <div
-              className="pointer-events-none absolute inset-0 opacity-20 transition-all duration-700"
+              className="pointer-events-none absolute inset-0 opacity-25 transition-all duration-700"
               style={{
-                background: `radial-gradient(circle at 50% 50%, ${coolant.fluid} 0%, transparent 70%)`,
+                background: thermalVision
+                  ? "radial-gradient(circle at 50% 50%, #ef4444 0%, #3b82f6 60%, #000 100%)"
+                  : ln2Mode
+                  ? "radial-gradient(circle at 50% 50%, #38bdf8 0%, #0284c7 40%, transparent 75%)"
+                  : `radial-gradient(circle at 50% 50%, ${coolant.fluid} 0%, transparent 70%)`,
               }}
             />
 
-            {/* Benchmark / Stress Test Laser Overlay */}
-            {benchmarking && (
+            {/* Frost Crystal overlay when LN2 is active */}
+            {ln2Mode && (
               <div
-                className="pointer-events-none absolute inset-0 opacity-30"
+                className="pointer-events-none absolute inset-0 opacity-40"
                 style={{
-                  backgroundImage: "repeating-linear-gradient(0deg, #22d3ee 0, #22d3ee 2px, transparent 0, transparent 18px)",
-                  animation: "pulse 0.4s infinite alternate",
+                  backgroundImage: "radial-gradient(circle at 20% 30%, #ffffff 0%, transparent 20%), radial-gradient(circle at 80% 70%, #ffffff 0%, transparent 25%)",
                 }}
               />
             )}
 
-            {/* Motherboard & Internal Hardware SVG */}
+            {/* Motherboard & Detailed Hardware Vector Graphic */}
             <div className={`relative transition-transform duration-200 ${shakeRig ? "scale-95 rotate-1" : "scale-100"}`}>
-              <svg width="440" height="340" viewBox="0 0 440 340" className="drop-shadow-2xl">
+              <svg width="460" height="350" viewBox="0 0 460 350" className="drop-shadow-2xl">
                 
-                {/* 1. Motherboard PCB Plate */}
-                <rect x="20" y="20" width="400" height="300" rx="6" fill="#131d2e" stroke="#1e293b" strokeWidth="4" />
-                {/* Gold Traces */}
-                <path d="M40 40 H160 V100 H220 M280 40 V160 H380 M50 260 H200 V200 H320 M360 220 V280" stroke="#f59e0b" strokeWidth="1.5" opacity="0.35" fill="none" />
+                {/* 1. Motherboard Black PCB Plate with High-Tech Grid */}
+                <rect x="15" y="15" width="430" height="320" rx="8" fill="#0b1322" stroke={thermalVision ? "#3b82f6" : "#1e293b"} strokeWidth="4" />
+                
+                {/* PCB Trace Circuit Lines */}
+                <path d="M35 35 H180 V110 H240 M300 35 V170 H400 M45 280 H210 V210 H340 M380 230 V290" stroke={thermalVision ? "#60a5fa" : "#f59e0b"} strokeWidth="1.5" opacity={thermalVision ? "0.6" : "0.35"} fill="none" />
+                <path d="M70 170 V80 H140 M240 170 H320 V120" stroke="#38bdf8" strokeWidth="1.2" opacity="0.4" strokeDasharray="4 4" fill="none" />
 
-                {/* 2. CPU Socket & Liquid Cooling Waterblock */}
+                {/* VRM Heatsink Blocks on Top & Left of CPU */}
+                <g className="cursor-pointer" onClick={() => { setActiveComponent("vrm"); sound.play("click"); }}>
+                  <rect x="70" y="30" width="130" height="20" rx="3" fill={thermalVision ? "#fb923c" : "#1e293b"} stroke="#334155" strokeWidth="2" />
+                  <rect x="45" y="55" width="22" height="120" rx="3" fill={thermalVision ? "#fb923c" : "#1e293b"} stroke="#334155" strokeWidth="2" />
+                  <text x="135" y="44" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="6.5" fill="#94a3b8" fontWeight="bold">24-PHASE VRM POWER RAIL</text>
+                </g>
+
+                {/* 2. CPU Socket & Customizable Liquid Cooling Waterblock */}
                 <g
                   className="cursor-pointer transition-transform hover:scale-105"
                   onClick={() => { setActiveComponent("cpu"); sound.play("click"); }}
                 >
                   <rect
                     x="75"
-                    y="55"
-                    width="115"
-                    height="115"
+                    y="60"
+                    width="120"
+                    height="120"
                     rx="10"
-                    fill="#0f172a"
+                    fill={thermalVision ? (turboMode ? "#f87171" : "#fbbf24") : "#0f172a"}
                     stroke={activeComponent === "cpu" ? "#38bdf8" : "#334155"}
                     strokeWidth={activeComponent === "cpu" ? "4" : "2.5"}
                   />
-                  {/* Waterblock Circular Pump Display */}
-                  <circle cx="132" cy="112" r="42" fill="#030712" stroke={coolant.fluid} strokeWidth="4" />
-                  <circle cx="132" cy="112" r="42" fill="none" stroke={coolant.glow} strokeWidth="8" opacity="0.4" />
+                  {/* Waterblock Circular Pump Bezel */}
+                  <circle cx="135" cy="120" r="44" fill="#030712" stroke={coolant.fluid} strokeWidth="4.5" />
+                  <circle cx="135" cy="120" r="44" fill="none" stroke={coolant.glow} strokeWidth="10" opacity="0.5" />
                   
-                  {/* Digital Pump LCD Display */}
-                  <text x="132" y="104" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="14" fontWeight="900" fill="#f8fafc">
-                    {cpuTemp}°C
-                  </text>
-                  <text x="132" y="118" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="8" fontWeight="bold" fill={coolant.hex}>
-                    {clockSpeed}
-                  </text>
-                  <text x="132" y="128" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="6.5" fill="#94a3b8">
-                    {fanRpm} RPM
-                  </text>
-                  {/* Rotating waterblock flow impeller */}
-                  <g style={{ transformOrigin: "132px 112px", animation: `spin ${turboMode ? "0.6s" : "1.8s"} linear infinite` }}>
-                    <circle cx="132" cy="78" r="2.5" fill={coolant.fluid} />
-                    <circle cx="166" cy="112" r="2.5" fill={coolant.fluid} />
-                    <circle cx="132" cy="146" r="2.5" fill={coolant.fluid} />
-                    <circle cx="98" cy="112" r="2.5" fill={coolant.fluid} />
+                  {/* Pump Display Screens */}
+                  {pumpScreenMode === 0 && (
+                    <g>
+                      <text x="135" y="112" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="15" fontWeight="900" fill={ln2Mode ? "#e0f2fe" : "#f8fafc"}>
+                        {cpuTemp}°C
+                      </text>
+                      <text x="135" y="126" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="8.5" fontWeight="bold" fill={coolant.hex}>
+                        {clockSpeed}
+                      </text>
+                      <text x="135" y="136" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="6.5" fill="#94a3b8">
+                        {fanRpm} RPM
+                      </text>
+                    </g>
+                  )}
+                  {pumpScreenMode === 1 && (
+                    <g>
+                      <text x="135" y="110" textAnchor="middle" fontSize="18">🐱</text>
+                      <text x="135" y="126" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="7" fontWeight="bold" fill={coolant.hex}>NYAN_CORE</text>
+                      <text x="135" y="136" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="6" fill="#94a3b8">PURRING @ 6.2GHz</text>
+                    </g>
+                  )}
+                  {pumpScreenMode === 2 && (
+                    <g>
+                      <rect x="110" y="105" width="5" height="22" fill={coolant.fluid} className="animate-pulse" />
+                      <rect x="120" y="98" width="5" height="29" fill={coolant.hex} className="animate-pulse" />
+                      <rect x="130" y="92" width="5" height="35" fill="#fff" className="animate-pulse" />
+                      <rect x="140" y="102" width="5" height="25" fill={coolant.hex} className="animate-pulse" />
+                      <rect x="150" y="110" width="5" height="17" fill={coolant.fluid} className="animate-pulse" />
+                      <text x="135" y="138" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="6" fill="#94a3b8">EQUALIZER</text>
+                    </g>
+                  )}
+                  {pumpScreenMode === 3 && (
+                    <g>
+                      <text x="135" y="110" textAnchor="middle" fontSize="18">🔥</text>
+                      <text x="135" y="125" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="8" fontWeight="bold" fill="#f87171">{cpuTemp}°C DIE</text>
+                      <text x="135" y="136" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="6" fill="#fbbf24">MAX OVERDRIVE</text>
+                    </g>
+                  )}
+
+                  {/* Flow Impeller Spinner */}
+                  <g style={{ transformOrigin: "135px 120px", animation: `spin ${ln2Mode ? "0.3s" : turboMode ? "0.6s" : "1.8s"} linear infinite` }}>
+                    <circle cx="135" cy="84" r="3" fill={coolant.fluid} />
+                    <circle cx="171" cy="120" r="3" fill={coolant.fluid} />
+                    <circle cx="135" cy="156" r="3" fill={coolant.fluid} />
+                    <circle cx="99" cy="120" r="3" fill={coolant.fluid} />
                   </g>
                 </g>
 
-                {/* 3. DDR5 RAM Slots (4 Sticks with RGB Bars) */}
+                {/* 3. DDR5 RAM Slots (4 Sticks with RGB Wave) */}
                 <g
                   className="cursor-pointer transition-transform hover:scale-105"
                   onClick={() => { setActiveComponent("ram"); sound.play("click"); }}
                 >
                   <rect
-                    x="215"
-                    y="50"
-                    width="60"
-                    height="125"
+                    x="220"
+                    y="55"
+                    width="62"
+                    height="130"
                     rx="4"
-                    fill="#0f172a"
+                    fill={thermalVision ? "#3b82f6" : "#0f172a"}
                     stroke={activeComponent === "ram" ? "#38bdf8" : "#334155"}
                     strokeWidth={activeComponent === "ram" ? "3" : "1.5"}
                   />
                   {Array.from({ length: 4 }).map((_, i) => (
-                    <g key={i} transform={`translate(${222 + i * 13} 56)`}>
-                      <rect width="8" height="112" rx="1.5" fill="#1e293b" stroke="#000" strokeWidth="1" />
+                    <g key={i} transform={`translate(${227 + i * 13.5} 62)`}>
+                      <rect width="8.5" height="116" rx="1.5" fill="#1e293b" stroke="#000" strokeWidth="1" />
                       {/* RGB Top Diffuser Bar */}
                       <rect
-                        width="8"
-                        height="18"
+                        width="8.5"
+                        height="20"
                         rx="1"
-                        fill={turboMode ? "#f43f5e" : ["#38bdf8", "#818cf8", "#c084fc", "#f472b6"][i]}
-                        style={{ animation: `pulse ${0.8 + i * 0.2}s infinite alternate` }}
+                        fill={ln2Mode ? "#e0f2fe" : turboMode ? "#f43f5e" : ["#38bdf8", "#818cf8", "#c084fc", "#f472b6"][i]}
+                        style={{ animation: `pulse ${0.7 + i * 0.2}s infinite alternate` }}
                       />
-                      <text x="4" y="65" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="4.5" fill="#64748b" transform={`rotate(-90 4 65)`}>
+                      <text x="4.2" y="68" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="4.5" fill="#94a3b8" transform={`rotate(-90 4.2 68)`}>
                         DDR5
                       </text>
                     </g>
                   ))}
                 </g>
 
-                {/* 4. GPU: NVIDIA RTX 4090 Ti Beast */}
+                {/* 4. GPU: NVIDIA RTX 4090 Ti Beast with Glowing Fans */}
                 <g
                   className="cursor-pointer transition-transform hover:scale-105"
                   onClick={() => { setActiveComponent("gpu"); sound.play("click"); }}
                 >
                   {/* PCIe Armor / GPU Shroud */}
                   <rect
-                    x="45"
-                    y="190"
-                    width="345"
-                    height="85"
+                    x="40"
+                    y="200"
+                    width="365"
+                    height="90"
                     rx="6"
-                    fill="#0f172a"
+                    fill={thermalVision ? (benchmarking ? "#ef4444" : "#fb923c") : "#0f172a"}
                     stroke={activeComponent === "gpu" ? "#38bdf8" : "#475569"}
                     strokeWidth={activeComponent === "gpu" ? "4" : "2"}
                   />
-                  {/* Heatsink Fins Pattern */}
-                  <line x1="55" y1="232" x2="380" y2="232" stroke="#334155" strokeWidth="1.5" strokeDasharray="3 3" />
+                  {/* Heatsink Fins Line */}
+                  <line x1="50" y1="245" x2="395" y2="245" stroke="#334155" strokeWidth="1.5" strokeDasharray="3 3" />
                   
-                  {/* 3 Massive Spinning Fans */}
-                  {[105, 215, 325].map((fx, fi) => (
+                  {/* 3 Massive Spinning RGB Fans */}
+                  {[105, 222, 340].map((fx, fi) => (
                     <g key={fi}>
-                      <circle cx={fx} cy="232" r="30" fill="#020617" stroke="#334155" strokeWidth="2.5" />
-                      <circle cx={fx} cy="232" r="30" fill="none" stroke={turboMode ? "#ef4444" : coolant.fluid} strokeWidth="2" opacity="0.5" />
-                      {/* Fan Blades Rotation */}
-                      <g style={{ transformOrigin: `${fx}px 232px`, animation: `spin ${benchmarking ? "0.4s" : turboMode ? "0.8s" : "2.2s"} linear infinite` }}>
-                        <path d={`M${fx} 232 Q${fx + 14} 206 ${fx + 24} 210 Q${fx + 10} 224 ${fx} 232 Z`} fill="#475569" />
-                        <path d={`M${fx} 232 Q${fx + 24} 242 ${fx + 20} 256 Q${fx + 8} 246 ${fx} 232 Z`} fill="#475569" />
-                        <path d={`M${fx} 232 Q${fx - 14} 258 ${fx - 24} 254 Q${fx - 10} 240 ${fx} 232 Z`} fill="#475569" />
-                        <path d={`M${fx} 232 Q${fx - 24} 222 ${fx - 20} 208 Q${fx - 8} 218 ${fx} 232 Z`} fill="#475569" />
+                      <circle cx={fx} cy="245" r="32" fill="#020617" stroke="#334155" strokeWidth="2.5" />
+                      <circle cx={fx} cy="245" r="32" fill="none" stroke={ln2Mode ? "#e0f2fe" : turboMode ? "#ef4444" : coolant.fluid} strokeWidth="2.5" opacity="0.6" />
+                      {/* Rotating Fan Blades */}
+                      <g style={{ transformOrigin: `${fx}px 245px`, animation: `spin ${benchmarking ? "0.3s" : ln2Mode ? "0.4s" : turboMode ? "0.7s" : "2.2s"} linear infinite` }}>
+                        <path d={`M${fx} 245 Q${fx + 15} 216 ${fx + 26} 220 Q${fx + 11} 236 ${fx} 245 Z`} fill="#475569" />
+                        <path d={`M${fx} 245 Q${fx + 26} 256 ${fx + 22} 271 Q${fx + 9} 260 ${fx} 245 Z`} fill="#475569" />
+                        <path d={`M${fx} 245 Q${fx - 15} 273 ${fx - 26} 269 Q${fx - 11} 253 ${fx} 245 Z`} fill="#475569" />
+                        <path d={`M${fx} 245 Q${fx - 26} 234 ${fx - 22} 219 Q${fx - 9} 230 ${fx} 245 Z`} fill="#475569" />
                       </g>
-                      {/* Center Hub */}
-                      <circle cx={fx} cy="232" r="9" fill="#0f172a" stroke="#64748b" strokeWidth="1.5" />
-                      <text x={fx} y="235" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="6" fontWeight="bold" fill="#fff">
+                      <circle cx={fx} cy="245" r="10" fill="#0f172a" stroke="#64748b" strokeWidth="1.5" />
+                      <text x={fx} y="248" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="6" fontWeight="bold" fill="#fff">
                         4090
                       </text>
                     </g>
                   ))}
 
-                  {/* GPU Badge */}
-                  <rect x="55" y="196" width="130" height="14" rx="2" fill="#020617" />
-                  <text x="62" y="206" fontFamily="var(--font-mono)" fontSize="7" fontWeight="bold" fill="#38bdf8">
-                    RTX 4090 Ti · 24GB ({gpuTemp}°C)
+                  {/* GPU Illuminated Badge */}
+                  <rect x="52" y="206" width="140" height="15" rx="2" fill="#020617" />
+                  <text x="58" y="217" fontFamily="var(--font-mono)" fontSize="7.5" fontWeight="bold" fill={ln2Mode ? "#38bdf8" : "#22d3ee"}>
+                    GEFORCE RTX 4090 Ti · 24GB ({gpuTemp}°C)
                   </text>
                 </g>
 
-                {/* 5. Liquid Cooling Rigid Tubing (Connecting CPU to Radiator) */}
+                {/* 5. Liquid Cooling Rigid Acrylic Tubing */}
                 <path
-                  d="M132 55 V35 H360 V190"
+                  d="M135 60 V38 H380 V200"
                   fill="none"
                   stroke={coolant.fluid}
-                  strokeWidth="8"
+                  strokeWidth="9"
                   strokeLinecap="round"
-                  opacity="0.85"
+                  opacity="0.9"
                 />
                 <path
-                  d="M132 55 V35 H360 V190"
+                  d="M135 60 V38 H380 V200"
                   fill="none"
                   stroke="#ffffff"
-                  strokeWidth="2"
-                  strokeDasharray="8 12"
+                  strokeWidth="2.5"
+                  strokeDasharray="8 14"
                   strokeLinecap="round"
-                  style={{ animation: "dash 1s linear infinite" }}
+                  style={{ animation: `dash ${ln2Mode ? "0.4s" : "0.9s"} linear infinite` }}
                 />
 
-                {/* 6. M.2 NVMe SSD Heatsink */}
-                <g
-                  className="cursor-pointer"
-                  onClick={() => { setActiveComponent("ssd"); sound.play("click"); }}
-                >
-                  <rect x="80" y="174" width="90" height="12" rx="2" fill="#1e293b" stroke={activeComponent === "ssd" ? "#38bdf8" : "#475569"} strokeWidth="1.5" />
-                  <text x="85" y="183" fontFamily="var(--font-mono)" fontSize="6" fill="#38bdf8" fontWeight="bold">GEN5 NVMe RAID-0 [14 GB/s]</text>
+                {/* 6. Dual M.2 NVMe SSD Armor with Activity Diodes */}
+                <g className="cursor-pointer" onClick={() => { setActiveComponent("ssd"); sound.play("click"); }}>
+                  <rect x="80" y="184" width="95" height="11" rx="2" fill="#1e293b" stroke={activeComponent === "ssd" ? "#38bdf8" : "#475569"} strokeWidth="1.5" />
+                  <text x="85" y="192" fontFamily="var(--font-mono)" fontSize="5.5" fill="#38bdf8" fontWeight="bold">GEN5 NVMe RAID-0 [14 GB/s]</text>
+                  <circle cx="170" cy="189.5" r="2" fill="#22c55e" className="animate-ping" />
                 </g>
 
-                {/* 7. PSU & Power Rail at Top-Right */}
-                <g
-                  className="cursor-pointer"
-                  onClick={() => { setActiveComponent("psu"); sound.play("click"); }}
-                >
-                  <rect x="290" y="45" width="120" height="70" rx="4" fill="#020617" stroke={activeComponent === "psu" ? "#38bdf8" : "#334155"} strokeWidth="2" />
-                  <text x="300" y="65" fontFamily="var(--font-mono)" fontSize="9" fontWeight="bold" fill="#f59e0b">1200W TITANIUM</text>
-                  <text x="300" y="80" fontFamily="var(--font-mono)" fontSize="7.5" fill="#94a3b8">EFFICIENCY: 96.4%</text>
-                  <rect x="300" y="90" width="100" height="8" rx="2" fill="#1e293b" />
-                  <rect x="300" y="90" width={`${Math.min(100, (livePower / 1200) * 100)}`} height="8" rx="2" fill={turboMode ? "#ef4444" : "#10b981"} />
+                {/* 7. PSU Power Delivery Module */}
+                <g className="cursor-pointer" onClick={() => { setActiveComponent("psu"); sound.play("click"); }}>
+                  <rect x="300" y="48" width="125" height="72" rx="4" fill="#020617" stroke={activeComponent === "psu" ? "#38bdf8" : "#334155"} strokeWidth="2" />
+                  <text x="310" y="68" fontFamily="var(--font-mono)" fontSize="9" fontWeight="bold" fill="#f59e0b">1200W TITANIUM</text>
+                  <text x="310" y="82" fontFamily="var(--font-mono)" fontSize="7" fill="#94a3b8">EFFICIENCY: 96.4%</text>
+                  <rect x="310" y="92" width="105" height="8" rx="2" fill="#1e293b" />
+                  <rect x="310" y="92" width={`${Math.min(105, (livePower / 1200) * 105)}`} height="8" rx="2" fill={turboMode ? "#ef4444" : "#10b981"} />
                 </g>
+
+                {/* 8. Diagnostic POST 7-Segment Display on PCB */}
+                <rect x="400" y="15" width="30" height="20" fill="#000" stroke="#334155" strokeWidth="1" />
+                <text x="415" y="29" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="10" fontWeight="900" fill="#ef4444">
+                  {postCode}
+                </text>
 
               </svg>
             </div>
 
-            {/* Bottom Status bar inside viewport */}
+            {/* Bottom Status Telemetry Bar */}
             <div className="mt-2 flex w-full flex-wrap items-center justify-between border-t border-slate-700/60 pt-2 text-[10px] text-slate-300 font-mono">
               <span className="flex items-center gap-1.5">
                 <span className="h-2 w-2 rounded-full animate-ping" style={{ background: coolant.fluid }} />
-                <span>PUMP: {fanRpm} RPM · COOLANT: {coolant.name.toUpperCase()}</span>
+                <span>PUMP: {fanRpm} RPM · THEME: {coolant.name.toUpperCase()}</span>
               </span>
-              <span>CLICK ANY COMPONENT FOR DIAGNOSTICS & TUNING</span>
+              <button
+                type="button"
+                onClick={cyclePumpScreen}
+                className="underline hover:text-white"
+              >
+                🔄 CYCLE PUMP LCD DISPLAY (4 MODES)
+              </button>
             </div>
           </div>
 
-          {/* Right: Hardware Tuning & Interactive Controls Panel */}
-          <div className="flex flex-col gap-3 md:w-80">
+          {/* Right Hardware Control & Inspector Sidebar */}
+          <div className="flex flex-col gap-2.5 md:w-80">
             
             {/* Component Inspector Card */}
-            <div className="border-2 border-lab-ink bg-card p-3 shadow-sm">
-              <div className="flex items-center justify-between border-b border-lab-ink/20 pb-1.5 mb-2">
+            <div className="border-2 border-lab-ink bg-card p-3 shadow-sm space-y-2">
+              <div className="flex items-center justify-between border-b border-lab-ink/20 pb-1.5">
                 <span className="font-display text-sm font-bold text-lab-ink">
-                  {activeComponent === "cpu" && "🧠 QUANTUM i9-9900KS CPU"}
-                  {activeComponent === "gpu" && "🎮 NVIDIA RTX 4090 Ti 24GB"}
-                  {activeComponent === "ram" && "⚡ 128GB DDR5-7200 RGB RAM"}
+                  {activeComponent === "cpu" && "🧠 QUANTUM i9-9900KS"}
+                  {activeComponent === "gpu" && "🎮 NVIDIA RTX 4090 Ti"}
+                  {activeComponent === "ram" && "⚡ 128GB DDR5-7200 RGB"}
                   {activeComponent === "ssd" && "💾 8TB Gen5 NVMe RAID-0"}
-                  {activeComponent === "psu" && "⚡ 1200W TITANIUM 80+ PSU"}
+                  {activeComponent === "psu" && "⚡ 1200W TITANIUM PSU"}
+                  {activeComponent === "vrm" && "⚡ 24-PHASE DIGITAL VRM"}
                 </span>
-                <Tag tone={turboMode ? "red" : "green"}>
+                <Tag tone={cpuTemp > 80 ? "red" : "green"}>
                   {activeComponent === "cpu" ? `${cpuTemp}°C` : activeComponent === "gpu" ? `${gpuTemp}°C` : "ACTIVE"}
                 </Tag>
               </div>
 
-              {/* Dynamic details based on selection */}
               {activeComponent === "cpu" && (
                 <div className="space-y-1.5 text-[11px] font-mono">
-                  <p>• <strong>Cores:</strong> 32 Cores / 64 Threads @ {clockSpeed}</p>
-                  <p>• <strong>Delidded Die:</strong> Direct-Die Liquid Metal applied</p>
-                  <p>• <strong>Status:</strong> {turboMode ? "🔥 Thermal limit nearing ceiling!" : "Normal Lab Operations"}</p>
-                  <div className="mt-2 pt-1 border-t border-lab-ink/20">
+                  <p>• <strong>Architecture:</strong> 32 Cores (16P + 16E) / 64 Threads</p>
+                  <p>• <strong>Frequency:</strong> {clockSpeed} All-Core Liquid Sync</p>
+                  <p>• <strong>Thermal State:</strong> {ln2Mode ? "❄️ Subzero Superconductor (-196°C)" : turboMode ? "🔥 Thermal Max" : "Nominal Lab Temps"}</p>
+                  <div className="grid grid-cols-2 gap-1.5 pt-1">
                     <BrutButton
                       variant={turboMode ? "danger" : "go"}
-                      className="w-full text-xs font-bold"
+                      className="text-[10px] font-bold"
                       onClick={toggleTurbo}
                     >
-                      {turboMode ? "⚡ DISABLE TURBO BOOST" : "🚀 ENGAGE TURBO (6.2 GHz)"}
+                      {turboMode ? "⚡ TURBO OFF" : "🚀 6.2GHz TURBO"}
+                    </BrutButton>
+                    <BrutButton
+                      variant={ln2Mode ? "danger" : "default"}
+                      className="text-[10px] font-bold"
+                      onClick={toggleLn2}
+                    >
+                      {ln2Mode ? "🔥 DRAIN LN2" : "❄️ POUR LN2"}
                     </BrutButton>
                   </div>
                 </div>
@@ -2214,61 +2410,61 @@ function CpuPanel() {
 
               {activeComponent === "gpu" && (
                 <div className="space-y-1.5 text-[11px] font-mono">
-                  <p>• <strong>VRAM:</strong> 24GB GDDR6X @ 1,008 GB/s</p>
+                  <p>• <strong>VRAM:</strong> 24GB GDDR6X @ 1,008 GB/s Bandwidth</p>
                   <p>• <strong>Compute:</strong> 16,384 CUDA Cores · 512 Tensor Cores</p>
-                  <p>• <strong>Workload:</strong> 99% (Running Minesweeper + 48 Chrome tabs)</p>
                   {benchmarkScore && (
-                    <p className="font-bold text-lab-green">🏆 Last Score: {benchmarkScore.toLocaleString()} PTS</p>
+                    <p className="font-bold text-lab-green">🏆 Benchmark: {benchmarkScore.toLocaleString()} PTS</p>
                   )}
-                  <div className="mt-2 pt-1 border-t border-lab-ink/20">
-                    <BrutButton
-                      variant="go"
-                      disabled={benchmarking}
-                      className="w-full text-xs font-bold"
-                      onClick={runBenchmark}
-                    >
-                      {benchmarking ? "🔥 BENCHMARKING..." : "💥 RUN 3D STRESS TEST"}
-                    </BrutButton>
-                  </div>
+                  <BrutButton
+                    variant="go"
+                    disabled={benchmarking}
+                    className="w-full text-xs font-bold"
+                    onClick={runBenchmark}
+                  >
+                    {benchmarking ? "🔥 RUNNING PATH-TRACING..." : "💥 RUN 3D STRESS TEST (+35 XP)"}
+                  </BrutButton>
                 </div>
               )}
 
               {activeComponent === "ram" && (
                 <div className="space-y-1.5 text-[11px] font-mono">
-                  <p>• <strong>Capacity:</strong> {ramDownloaded} GB (Quad-Channel)</p>
-                  <p>• <strong>Speed:</strong> 7200 MT/s CL28 XMP 3.0</p>
-                  <p>• <strong>Allocation:</strong> 112GB consumed by IDE cache</p>
-                  <div className="mt-2 pt-1 border-t border-lab-ink/20">
-                    <BrutButton
-                      className="w-full text-xs font-bold"
-                      onClick={downloadMoreRam}
-                    >
-                      📥 DOWNLOAD +32GB MORE RAM (FREE)
-                    </BrutButton>
-                  </div>
+                  <p>• <strong>Installed:</strong> {ramDownloaded} GB Quad-Channel DDR5</p>
+                  <p>• <strong>Profile:</strong> XMP 3.0 Extreme @ 7200 MT/s CL28</p>
+                  <BrutButton
+                    className="w-full text-xs font-bold"
+                    onClick={downloadMoreRam}
+                  >
+                    📥 DOWNLOAD +32GB MORE RAM (FREE)
+                  </BrutButton>
                 </div>
               )}
 
               {activeComponent === "ssd" && (
                 <div className="space-y-1.5 text-[11px] font-mono">
-                  <p>• <strong>Speed:</strong> Read 14,200 MB/s · Write 12,800 MB/s</p>
-                  <p>• <strong>Storage:</strong> 8.0 TB Total (7.9 TB memes & practicals)</p>
-                  <p>• <strong>IOPS:</strong> 2,400,000 Random 4K Operations</p>
+                  <p>• <strong>Sequential Read:</strong> 14,200 MB/s</p>
+                  <p>• <strong>Sequential Write:</strong> 12,800 MB/s</p>
+                  <p>• <strong>Total Volume:</strong> 8.0 TB PCIe 5.0 Striped RAID</p>
                 </div>
               )}
 
               {activeComponent === "psu" && (
                 <div className="space-y-1.5 text-[11px] font-mono">
-                  <p>• <strong>Output:</strong> {livePower}W / 1200W Maximum</p>
-                  <p>• <strong>Rating:</strong> 80-Plus Titanium Certified (96%)</p>
-                  <p>• <strong>Surge Protection:</strong> Withstands college campus power cuts</p>
+                  <p>• <strong>Telemetry:</strong> {livePower}W / 1200W Output</p>
+                  <p>• <strong>Power Factor:</strong> 0.99 Active PFC</p>
+                </div>
+              )}
+
+              {activeComponent === "vrm" && (
+                <div className="space-y-1.5 text-[11px] font-mono">
+                  <p>• <strong>Power Stages:</strong> 24+1+2 Smart Power 105A</p>
+                  <p>• <strong>VRM Temp:</strong> {turboMode ? "68°C" : "46°C"}</p>
                 </div>
               )}
             </div>
 
-            {/* RGB Coolant Loop Customizer */}
-            <div className="border-2 border-lab-ink bg-card p-2.5 shadow-sm space-y-2">
-              <span className="mono-label text-[10px] opacity-70">💧 LIQUID COOLANT THEME:</span>
+            {/* RGB Coolant Loop Selector */}
+            <div className="border-2 border-lab-ink bg-card p-2.5 shadow-sm space-y-1.5">
+              <span className="mono-label text-[10px] opacity-70">💧 COOLANT FLUID THEME:</span>
               <div className="flex flex-wrap gap-1.5">
                 {COOLANT_THEMES.map((th, i) => (
                   <button
@@ -2276,10 +2472,10 @@ function CpuPanel() {
                     type="button"
                     title={th.name}
                     onClick={() => { setCoolantIdx(i); sound.play("click"); }}
-                    className={`flex items-center gap-1 px-2 py-1 text-[10px] font-mono rounded-sm border-2 font-bold transition-transform ${
+                    className={`flex items-center gap-1 px-2 py-1 text-[9.5px] font-mono rounded-sm border-2 font-bold transition-transform ${
                       coolantIdx === i ? "border-lab-ink scale-105 shadow-sm" : "border-slate-300 opacity-70"
                     }`}
-                    style={{ background: th.fluid, color: i === 0 || i === 1 || i === 4 ? "#000" : "#fff" }}
+                    style={{ background: th.fluid, color: i === 0 || i === 1 || i === 4 || i === 5 ? "#000" : "#fff" }}
                   >
                     {th.name}
                   </button>
@@ -2287,10 +2483,10 @@ function CpuPanel() {
               </div>
             </div>
 
-            {/* Fan Speed Controller */}
+            {/* Fan Profile Speed Controller */}
             <div className="border-2 border-lab-ink bg-card p-2.5 shadow-sm space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="mono-label text-[10px] opacity-70">🌀 FAN PROFILE:</span>
+                <span className="mono-label text-[10px] opacity-70">🌀 RADIATOR FANS:</span>
                 <span className="mono-label text-[10px] font-bold">{fanRpm} RPM</span>
               </div>
               <div className="grid grid-cols-3 gap-1">
@@ -2311,7 +2507,156 @@ function CpuPanel() {
         </div>
       )}
 
-      {/* View 2: Complete Hardware Specification Sheet */}
+      {/* VIEW 2: SILICON LOTTERY & BIOS TUNING LAB */}
+      {viewMode === "silicon" && (
+        <div className="border-2 border-lab-ink bg-card p-4 shadow-sm space-y-4">
+          <div className="flex items-center justify-between border-b-2 border-lab-ink pb-2">
+            <div>
+              <h3 className="font-display text-lg font-bold">🧪 SILICON LOTTERY & BIOS VOLTAGE CONSOLE</h3>
+              <p className="mono-label text-xs opacity-75">Fine-tune CPU Clock Multipliers, Vcore Voltages & Memory Ratios</p>
+            </div>
+            <Tag tone={ocTested === "stable" ? "green" : ocTested === "crashed" ? "red" : "yellow"}>
+              {ocTested === "stable" ? "✅ 100% STABLE" : ocTested === "crashed" ? "💥 BSOD DETECTED" : "UNTESTED"}
+            </Tag>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            
+            {/* Multiplier Slider */}
+            <div className="border-2 border-lab-ink/30 bg-background p-3 space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="mono-label text-xs font-bold">ALL-CORE RATIO:</span>
+                <span className="font-mono text-sm font-black text-lab-red">{ocRatio}x ({(ocRatio / 10).toFixed(2)} GHz)</span>
+              </div>
+              <input
+                type="range"
+                min={50}
+                max={74}
+                value={ocRatio}
+                onChange={(e) => { setOcRatio(Number(e.target.value)); setOcTested("none"); }}
+                className="w-full cursor-pointer accent-lab-red"
+              />
+              <p className="text-[10px] font-mono opacity-60">Base reference: 100.0 MHz BCLK</p>
+            </div>
+
+            {/* Vcore Voltage Slider */}
+            <div className="border-2 border-lab-ink/30 bg-background p-3 space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="mono-label text-xs font-bold">VCORE VOLTAGE:</span>
+                <span className="font-mono text-sm font-black text-lab-blue">{ocVoltage.toFixed(2)} V</span>
+              </div>
+              <input
+                type="range"
+                min={1.20}
+                max={1.55}
+                step={0.01}
+                value={ocVoltage}
+                onChange={(e) => { setOcVoltage(Number(e.target.value)); setOcTested("none"); }}
+                className="w-full cursor-pointer accent-lab-blue"
+              />
+              <p className="text-[10px] font-mono opacity-60">LLC: Level 7 Extreme Loadline</p>
+            </div>
+
+            {/* DRAM Speed Slider */}
+            <div className="border-2 border-lab-ink/30 bg-background p-3 space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="mono-label text-xs font-bold">DRAM FREQUENCY:</span>
+                <span className="font-mono text-sm font-black text-lab-green">{ocDram} MT/s</span>
+              </div>
+              <input
+                type="range"
+                min={6000}
+                max={8400}
+                step={200}
+                value={ocDram}
+                onChange={(e) => { setOcDram(Number(e.target.value)); setOcTested("none"); }}
+                className="w-full cursor-pointer accent-lab-green"
+              />
+              <p className="text-[10px] font-mono opacity-60">Timing: CL28-36-36-76 1.45V</p>
+            </div>
+
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <BrutButton
+              variant="go"
+              className="flex-1 font-bold text-sm"
+              onClick={testSiliconOverclock}
+            >
+              ⚡ APPLY & RUN SILICON STABILITY TEST (+30 XP)
+            </BrutButton>
+            <BrutButton
+              onClick={() => { setOcRatio(54); setOcVoltage(1.32); setOcDram(7200); setOcTested("none"); sound.play("click"); }}
+              className="text-xs"
+            >
+              🔄 RESTORE DEFAULTS
+            </BrutButton>
+          </div>
+
+          <p className="mono-label text-[10px] opacity-70">
+            ⚠️ Caution: Pushing ratio beyond 60x with insufficient voltage will crash the CPU with a Blue Screen of Death (BSOD)!
+          </p>
+        </div>
+      )}
+
+      {/* VIEW 3: LIVE TELEMETRY & OSCILLOSCOPE */}
+      {viewMode === "telemetry" && (
+        <div className="border-2 border-lab-ink bg-card p-4 shadow-sm space-y-4">
+          <div className="flex items-center justify-between border-b-2 border-lab-ink pb-2">
+            <div>
+              <h3 className="font-display text-lg font-bold">📊 REAL-TIME CORE LOAD MATRIX & OSCILLOSCOPE</h3>
+              <p className="mono-label text-xs opacity-75">Per-Thread Utilization & Signal Waveform</p>
+            </div>
+            <Tag tone="green">64 THREADS ACTIVE</Tag>
+          </div>
+
+          {/* 32 Cores Load Bars Grid */}
+          <div className="space-y-1.5">
+            <span className="mono-label text-xs font-bold">PER-CORE UTILIZATION (32 CORES):</span>
+            <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
+              {Array.from({ length: 32 }).map((_, i) => {
+                const load = benchmarking ? Math.min(100, Math.floor(85 + Math.random() * 15)) : Math.floor(15 + Math.random() * 55);
+                return (
+                  <div key={i} className="border border-lab-ink/30 bg-background p-1.5 text-center">
+                    <div className="flex justify-between text-[9px] font-mono opacity-60">
+                      <span>C{i}</span>
+                      <span>{load}%</span>
+                    </div>
+                    <div className="mt-1 h-2 w-full bg-slate-200 overflow-hidden rounded-xs">
+                      <div
+                        className="h-full transition-all duration-500"
+                        style={{
+                          width: `${load}%`,
+                          background: load > 80 ? "#ef4444" : load > 50 ? "#f59e0b" : "#10b981",
+                        }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Voltage Stability Waveform */}
+          <div className="border-2 border-lab-ink bg-slate-950 p-3 text-cyan-400 font-mono space-y-1">
+            <div className="flex justify-between text-xs">
+              <span>VCORE TRANSIENT RESPONSE OSCILLOSCOPE</span>
+              <span>1.325V PEAK · RIPPLE &lt; 5mV</span>
+            </div>
+            <svg width="100%" height="60" className="overflow-hidden">
+              <path
+                d="M0 30 Q30 10 60 30 T120 30 T180 30 T240 30 T300 30 T360 30 T420 30 T480 30 T540 30 T600 30"
+                fill="none"
+                stroke="#22d3ee"
+                strokeWidth="2"
+                style={{ animation: "dash 1.5s linear infinite" }}
+              />
+            </svg>
+          </div>
+        </div>
+      )}
+
+      {/* VIEW 4: SPECIFICATION SHEET */}
       {viewMode === "specs" && (
         <div className="border-2 border-lab-ink bg-card p-4 shadow-sm space-y-4">
           <div className="flex items-center justify-between border-b-2 border-lab-ink pb-2">
@@ -2323,8 +2668,6 @@ function CpuPanel() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            
-            {/* Spec Box 1: Compute & Graphics */}
             <div className="border-2 border-lab-ink/30 bg-background p-3 space-y-2">
               <p className="font-display text-sm font-bold text-lab-red">⚡ CORE COMPUTE & ACCELERATORS</p>
               <table className="w-full text-xs font-mono">
@@ -2335,14 +2678,14 @@ function CpuPanel() {
                   </tr>
                   <tr className="border-b border-lab-ink/10">
                     <td className="py-1 opacity-70">BASE / BOOST</td>
-                    <td className="py-1 font-bold">4.2 GHz / 6.2 GHz All-Core Liquid Turbo</td>
+                    <td className="py-1 font-bold">4.2 GHz / 6.2 GHz (7.4 GHz LN2 Cryo)</td>
                   </tr>
                   <tr className="border-b border-lab-ink/10">
-                    <td className="py-1 opacity-70">L3 SMART CACHE</td>
+                    <td className="py-1 opacity-70">L3 CACHE</td>
                     <td className="py-1 font-bold">64 MB Ultra-Low Latency SRAM</td>
                   </tr>
                   <tr className="border-b border-lab-ink/10">
-                    <td className="py-1 opacity-70">GRAPHICS ENGINE</td>
+                    <td className="py-1 opacity-70">GRAPHICS</td>
                     <td className="py-1 font-bold">NVIDIA GeForce RTX 4090 Ti (24GB VRAM)</td>
                   </tr>
                   <tr>
@@ -2353,18 +2696,17 @@ function CpuPanel() {
               </table>
             </div>
 
-            {/* Spec Box 2: Memory, Storage & Power */}
             <div className="border-2 border-lab-ink/30 bg-background p-3 space-y-2">
               <p className="font-display text-sm font-bold text-lab-blue">💾 MEMORY, STORAGE & POWER</p>
               <table className="w-full text-xs font-mono">
                 <tbody>
                   <tr className="border-b border-lab-ink/10">
-                    <td className="py-1 opacity-70">SYSTEM MEMORY</td>
+                    <td className="py-1 opacity-70">SYSTEM RAM</td>
                     <td className="py-1 font-bold">128 GB Quad-Channel DDR5-7200MHz CL28</td>
                   </tr>
                   <tr className="border-b border-lab-ink/10">
                     <td className="py-1 opacity-70">PRIMARY STORAGE</td>
-                    <td className="py-1 font-bold">8TB PCIe Gen5 x4 NVMe (14,200 MB/s read)</td>
+                    <td className="py-1 font-bold">8TB PCIe Gen5 x4 NVMe (14,200 MB/s)</td>
                   </tr>
                   <tr className="border-b border-lab-ink/10">
                     <td className="py-1 opacity-70">COOLING LOOP</td>
@@ -2375,16 +2717,14 @@ function CpuPanel() {
                     <td className="py-1 font-bold">1200W Titanium 80-Plus (96.4% Efficiency)</td>
                   </tr>
                   <tr>
-                    <td className="py-1 opacity-70">OPERATING SYSTEM</td>
-                    <td className="py-1 font-bold">LAB-OS Pro 64-bit Kernel Edition v4.0.4</td>
+                    <td className="py-1 opacity-70">OS</td>
+                    <td className="py-1 font-bold">LAB-OS Pro 64-bit Kernel v4.0.4</td>
                   </tr>
                 </tbody>
               </table>
             </div>
-
           </div>
 
-          {/* Humorous Research Log */}
           <div className="border-l-4 border-lab-yellow bg-card/60 p-3 text-xs font-mono space-y-1">
             <p className="font-bold text-lab-ink">📝 LAB INVENTORY LOG #8841:</p>
             <p className="opacity-80">
@@ -2395,7 +2735,7 @@ function CpuPanel() {
         </div>
       )}
 
-      {/* View 3: Exterior Chassis & Drive Bay Interactions */}
+      {/* VIEW 5: CHASSIS EXTERIOR */}
       {viewMode === "chassis" && (
         <div className="flex min-h-0 flex-1 flex-col items-center justify-center border-2 border-lab-ink bg-card p-6 shadow-sm gap-4">
           <p className="mono-label text-xs tracking-widest opacity-60">RETRO BEIGE SLEEPER CHASSIS</p>
@@ -2436,7 +2776,7 @@ function CpuPanel() {
                 style={{ animation: `spin ${turboMode ? "0.4s" : "1.5s"} linear infinite` }}
               />
               <span className="absolute font-mono text-[8px] font-bold text-white opacity-80">
-                {turboMode ? "6.2 GHz" : "5.4 GHz"}
+                {clockSpeed}
               </span>
             </div>
 
@@ -2463,16 +2803,17 @@ function CpuPanel() {
         </div>
       )}
 
-      {/* Global CSS for waterblock & particles */}
+      {/* Global CSS for liquid tubing & waves */}
       <style>{`
         @keyframes dash {
-          to { stroke-dashoffset: -20; }
+          to { stroke-dashoffset: -28; }
         }
       `}</style>
 
     </div>
   );
 }
+
 
 
 
