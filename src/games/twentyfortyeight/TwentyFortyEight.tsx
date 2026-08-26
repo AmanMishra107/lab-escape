@@ -4,7 +4,6 @@ import { BrutButton, Tag } from "../../components/ui/brut";
 import { store } from "../../systems/GameState";
 import { sound } from "../../systems/SoundSystem";
 
-// ─── Game Logic ────────────────────────────────────────────────────────────────
 type Row = [number, number, number, number];
 type Board = [Row, Row, Row, Row];
 
@@ -103,33 +102,35 @@ function hasWon(board: Board): boolean {
   return board.some((row) => row.includes(2048));
 }
 
-// ─── Tile Colours ───────────────────────────────────────────────────────────
+// Authentic 2048 Tile Palette
 const TILE_STYLE: Record<number, { bg: string; color: string; size: string }> = {
-  0:    { bg: "#1e293b",  color: "#1e293b",  size: "text-2xl" },
-  2:    { bg: "#eee4da",  color: "#776e65",  size: "text-2xl" },
-  4:    { bg: "#ede0c8",  color: "#776e65",  size: "text-2xl" },
-  8:    { bg: "#f2b179",  color: "#f9f6f2",  size: "text-2xl" },
-  16:   { bg: "#f59563",  color: "#f9f6f2",  size: "text-2xl" },
-  32:   { bg: "#f67c5f",  color: "#f9f6f2",  size: "text-2xl" },
-  64:   { bg: "#f65e3b",  color: "#f9f6f2",  size: "text-2xl" },
-  128:  { bg: "#edcf72",  color: "#f9f6f2",  size: "text-xl"  },
-  256:  { bg: "#edcc61",  color: "#f9f6f2",  size: "text-xl"  },
-  512:  { bg: "#edc850",  color: "#f9f6f2",  size: "text-xl"  },
-  1024: { bg: "#edc53f",  color: "#f9f6f2",  size: "text-lg"  },
-  2048: { bg: "#edc22e",  color: "#f9f6f2",  size: "text-lg"  },
+  0:    { bg: "#cdc1b4", color: "transparent", size: "text-2xl" },
+  2:    { bg: "#eee4da", color: "#776e65",     size: "text-3xl" },
+  4:    { bg: "#ede0c8", color: "#776e65",     size: "text-3xl" },
+  8:    { bg: "#f2b179", color: "#f9f6f2",     size: "text-3xl" },
+  16:   { bg: "#f59563", color: "#f9f6f2",     size: "text-3xl" },
+  32:   { bg: "#f67c5f", color: "#f9f6f2",     size: "text-3xl" },
+  64:   { bg: "#f65e3b", color: "#f9f6f2",     size: "text-3xl" },
+  128:  { bg: "#edcf72", color: "#f9f6f2",     size: "text-2xl" },
+  256:  { bg: "#edcc61", color: "#f9f6f2",     size: "text-2xl" },
+  512:  { bg: "#edc850", color: "#f9f6f2",     size: "text-2xl" },
+  1024: { bg: "#edc53f", color: "#f9f6f2",     size: "text-xl"  },
+  2048: { bg: "#edc22e", color: "#f9f6f2",     size: "text-xl"  },
+  4096: { bg: "#3c3a32", color: "#f9f6f2",     size: "text-lg"  },
 };
 
 function tileStyle(val: number) {
   return TILE_STYLE[val] ?? { bg: "#3c3a32", color: "#f9f6f2", size: "text-base" };
 }
 
-// ─── Component ─────────────────────────────────────────────────────────────
 function init(): Board {
   return addTile(addTile(emptyBoard()));
 }
 
 export default function TwentyFortyEight() {
   const [board, setBoard] = useState<Board>(init);
+  const [prevBoard, setPrevBoard] = useState<Board | null>(null);
+  const [prevScore, setPrevScore] = useState<number | null>(null);
   const [score, setScore] = useState(0);
   const [best, setBest] = useState(0);
   const [won, setWon] = useState(false);
@@ -138,10 +139,22 @@ export default function TwentyFortyEight() {
 
   const reset = () => {
     setBoard(init());
+    setPrevBoard(null);
+    setPrevScore(null);
     setScore(0);
     setWon(false);
     setOver(false);
     setWonDismissed(false);
+    sound.play("click");
+  };
+
+  const undo = () => {
+    if (!prevBoard || prevScore === null || over) return;
+    setBoard(prevBoard);
+    setScore(prevScore);
+    setPrevBoard(null);
+    setPrevScore(null);
+    sound.play("click");
   };
 
   const doMove = useCallback(
@@ -149,6 +162,10 @@ export default function TwentyFortyEight() {
       if (over) return;
       const result = move(board, dir);
       if (!result.moved) return;
+
+      setPrevBoard(board);
+      setPrevScore(score);
+
       sound.play("click");
       store.interacted();
       const next = addTile(result.board);
@@ -160,8 +177,15 @@ export default function TwentyFortyEight() {
         if (nb > b) store.submitGameResult("twentyfortyeight", { score: nb, accuracy: 1, time: 1, completed: false });
         return nb;
       });
-      if (!won && hasWon(next)) { setWon(true); sound.play("success"); }
-      if (isGameOver(next)) { setOver(true); sound.play("error"); store.submitGameResult("twentyfortyeight", { score: ns, accuracy: 1, time: 1, completed: true }); }
+      if (!won && hasWon(next)) {
+        setWon(true);
+        sound.play("success");
+      }
+      if (isGameOver(next)) {
+        setOver(true);
+        sound.play("error");
+        store.submitGameResult("twentyfortyeight", { score: ns, accuracy: 1, time: 1, completed: true });
+      }
     },
     [over, won, score, board],
   );
@@ -176,6 +200,7 @@ export default function TwentyFortyEight() {
       };
       const dir = map[e.key];
       if (dir) { e.preventDefault(); doMove(dir); }
+      if (e.key === "z" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); undo(); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -206,73 +231,108 @@ export default function TwentyFortyEight() {
         </>
       }
       toolbar={
-        <BrutButton variant="go" onClick={reset}>NEW GAME</BrutButton>
+        <div className="flex gap-1.5">
+          {prevBoard && (
+            <BrutButton onClick={undo} className="text-xs py-1">
+              ↩ UNDO
+            </BrutButton>
+          )}
+          <BrutButton variant="go" onClick={reset} className="text-xs py-1">
+            NEW GAME
+          </BrutButton>
+        </div>
       }
     >
-      <div className="flex flex-col items-center gap-3 select-none">
-        {/* Rules banner */}
-        <p className="mono-label text-xs opacity-60 text-center">
-          Slide tiles with Arrow keys / WASD. Merge matching numbers to reach 2048!
-        </p>
+      <div className="flex h-full w-full flex-col items-center justify-between p-2 select-none font-mono">
+        {/* Header HUD / Controls Info */}
+        <div className="flex w-full max-w-sm items-center justify-between rounded border-2 border-lab-ink bg-stone-900 px-3 py-1.5 text-xs text-white shadow-sm">
+          <span className="font-bold text-amber-400">2048 PUZZLE</span>
+          <span className="text-[10px] text-stone-400">ARROWS / WASD / SWIPE</span>
+        </div>
 
         {/* Win overlay */}
         {won && !wonDismissed && (
-          <div className="brut bg-lab-yellow px-6 py-3 text-center">
-            <p className="font-display text-xl">🎉 YOU REACHED 2048!</p>
-            <div className="flex gap-2 mt-2 justify-center">
-              <BrutButton variant="go" onClick={() => setWonDismissed(true)}>KEEP GOING</BrutButton>
-              <BrutButton variant="danger" onClick={reset}>NEW GAME</BrutButton>
+          <div className="brut bg-amber-300 border-2 border-lab-ink px-4 py-2 text-center text-black shadow-lg">
+            <p className="font-display text-lg font-bold">🎉 YOU REACHED 2048!</p>
+            <div className="flex gap-2 mt-1.5 justify-center">
+              <BrutButton variant="go" className="text-xs py-1" onClick={() => setWonDismissed(true)}>KEEP GOING</BrutButton>
+              <BrutButton variant="danger" className="text-xs py-1" onClick={reset}>NEW GAME</BrutButton>
             </div>
           </div>
         )}
 
         {/* Game over overlay */}
         {over && (
-          <div className="brut bg-lab-red px-6 py-3 text-center">
-            <p className="font-display text-xl text-white">GAME OVER</p>
-            <p className="mono-label text-white">Final score: {score}</p>
-            <BrutButton variant="go" className="mt-2" onClick={reset}>TRY AGAIN</BrutButton>
+          <div className="brut bg-rose-600 border-2 border-lab-ink px-4 py-2 text-center text-white shadow-lg">
+            <p className="font-display text-lg font-bold">GAME OVER</p>
+            <p className="text-xs opacity-90">Final score: {score}</p>
+            <BrutButton variant="go" className="mt-1.5 text-xs py-1" onClick={reset}>TRY AGAIN</BrutButton>
           </div>
         )}
 
-        {/* Board */}
+        {/* 4x4 Grid Board */}
         <div
-          className="brut p-2 grid gap-2"
-          style={{ background: "#bbada0", gridTemplateColumns: "repeat(4, 5rem)", gridTemplateRows: "repeat(4, 5rem)" }}
+          className="relative rounded-lg p-3 shadow-2xl border-4 border-lab-ink my-auto"
+          style={{ background: "#bbada0" }}
         >
-          {board.map((row, r) =>
-            row.map((val, c) => {
-              const s = tileStyle(val);
-              return (
-                <div
-                  key={`${r}-${c}`}
-                  className={`flex items-center justify-center font-display font-bold rounded ${s.size}`}
-                  style={{
-                    background: s.bg,
-                    color: s.color,
-                    width: "5rem",
-                    height: "5rem",
-                    transition: "background 0.1s",
-                    boxShadow: val ? "0 2px 8px rgba(0,0,0,0.3)" : undefined,
-                  }}
-                >
-                  {val !== 0 ? val : ""}
-                </div>
-              );
-            }),
-          )}
+          <div className="grid grid-cols-4 gap-2.5 w-64 h-64 sm:w-76 sm:h-76">
+            {board.map((row, r) =>
+              row.map((val, c) => {
+                const s = tileStyle(val);
+                return (
+                  <div
+                    key={`${r}-${c}`}
+                    className={`flex items-center justify-center font-display font-black rounded-md transition-all duration-100 select-none ${s.size}`}
+                    style={{
+                      background: s.bg,
+                      color: s.color,
+                      boxShadow: val ? "0 3px 6px rgba(0,0,0,0.18)" : "none",
+                      transform: val ? "scale(1)" : "scale(0.98)",
+                    }}
+                  >
+                    {val !== 0 ? val : ""}
+                  </div>
+                );
+              }),
+            )}
+          </div>
         </div>
 
-        {/* D-pad for mobile */}
-        <div className="grid grid-cols-3 gap-1 mt-1">
+        {/* D-pad for touch / mobile */}
+        <div className="grid grid-cols-3 gap-1.5 w-40">
           <div />
-          <BrutButton onClick={() => doMove("up")}>▲</BrutButton>
+          <button
+            type="button"
+            onClick={() => doMove("up")}
+            className="brut-sm bg-card hover:bg-stone-200 border-2 border-lab-ink py-1 text-sm font-bold active:scale-95"
+          >
+            ▲
+          </button>
           <div />
-          <BrutButton onClick={() => doMove("left")}>◄</BrutButton>
-          <BrutButton onClick={() => doMove("down")}>▼</BrutButton>
-          <BrutButton onClick={() => doMove("right")}>►</BrutButton>
+          <button
+            type="button"
+            onClick={() => doMove("left")}
+            className="brut-sm bg-card hover:bg-stone-200 border-2 border-lab-ink py-1 text-sm font-bold active:scale-95"
+          >
+            ◄
+          </button>
+          <button
+            type="button"
+            onClick={() => doMove("down")}
+            className="brut-sm bg-card hover:bg-stone-200 border-2 border-lab-ink py-1 text-sm font-bold active:scale-95"
+          >
+            ▼
+          </button>
+          <button
+            type="button"
+            onClick={() => doMove("right")}
+            className="brut-sm bg-card hover:bg-stone-200 border-2 border-lab-ink py-1 text-sm font-bold active:scale-95"
+          >
+            ►
+          </button>
         </div>
       </div>
     </GameShell>
   );
 }
+

@@ -51,7 +51,10 @@ export type GameId =
   | "connectfour"
   | "asteroids"
   | "battleship"
-  | "ludo";
+  | "ludo"
+  // 🏎️ NEW ARCADE EXPANSION
+  | "racer"
+  | "stack";
 
 export interface GameResult {
   gameId: GameId;

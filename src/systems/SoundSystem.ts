@@ -1,6 +1,6 @@
 import { store } from "./GameState";
 
-type Tone = "click" | "hover" | "open" | "close" | "error" | "success" | "key" | "alert" | "pop" | "glitch";
+type Tone = "click" | "hover" | "open" | "close" | "error" | "success" | "key" | "alert" | "pop" | "glitch" | "powerup" | "warn";
 
 class SoundSystem {
   private ctx: AudioContext | null = null;
@@ -45,8 +45,10 @@ class SoundSystem {
       alert: { type: "sawtooth", f: 880, f2: 440, dur: 0.35, vol: 0.2 },
       pop: { type: "sine", f: 300, f2: 900, dur: 0.09, vol: 0.14 },
       glitch: { type: "sawtooth", f: 60, f2: 1200, dur: 0.3, vol: 0.15 },
+      powerup: { type: "triangle", f: 330, f2: 880, dur: 0.2, vol: 0.18 },
+      warn: { type: "sawtooth", f: 440, f2: 220, dur: 0.22, vol: 0.18 },
     };
-    const p = presets[tone];
+    const p = presets[tone] ?? presets.click;
     osc.type = p.type;
     osc.frequency.setValueAtTime(p.f, t);
     if (p.f2) osc.frequency.exponentialRampToValueAtTime(Math.max(30, p.f2), t + p.dur);

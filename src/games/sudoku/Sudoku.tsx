@@ -4,17 +4,13 @@ import { BrutButton, Tag } from "../../components/ui/brut";
 import { store } from "../../systems/GameState";
 import { sound } from "../../systems/SoundSystem";
 
-// ─── Sudoku Generator ───────────────────────────────────────────────────────
-// Uses a backtracking solver to generate valid puzzles.
-// Difficulty levels vary by how many clues are removed.
-
-type Grid9 = number[][];  // 0 = empty
+type Grid9 = number[][]; // 0 = empty
 
 function makeBase(): Grid9 {
   const base: Grid9 = Array.from({ length: 9 }, () => Array(9).fill(0));
   // Fill diagonal 3x3 boxes first (they don't interact)
   for (let b = 0; b < 3; b++) {
-    const nums = [1,2,3,4,5,6,7,8,9].sort(() => Math.random() - 0.5);
+    const nums = [1, 2, 3, 4, 5, 6, 7, 8, 9].sort(() => Math.random() - 0.5);
     for (let r = 0; r < 3; r++)
       for (let c = 0; c < 3; c++)
         base[b * 3 + r]![b * 3 + c] = nums[r * 3 + c]!;
@@ -56,7 +52,7 @@ function generatePuzzle(difficulty: "easy" | "medium" | "hard"): { puzzle: Grid9
   solve(solution);
   const puzzle = solution.map((row) => [...row]);
   // Remove cells
-  const removals = difficulty === "easy" ? 35 : difficulty === "medium" ? 45 : 52;
+  const removals = difficulty === "easy" ? 32 : difficulty === "medium" ? 44 : 52;
   let removed = 0;
   const cells = Array.from({ length: 81 }, (_, i) => i).sort(() => Math.random() - 0.5);
   for (const idx of cells) {
@@ -68,7 +64,6 @@ function generatePuzzle(difficulty: "easy" | "medium" | "hard"): { puzzle: Grid9
   return { puzzle, solution };
 }
 
-// ─── Validation helpers ──────────────────────────────────────────────────────
 function isSolvedCorrectly(grid: Grid9, solution: Grid9): boolean {
   return grid.every((row, r) => row.every((v, c) => v === solution[r]![c]));
 }
@@ -84,10 +79,14 @@ function getConflicts(grid: Grid9): Set<string> {
         if (i !== r && grid[i]![c] === v) { conflicts.add(`${r},${c}`); conflicts.add(`${i},${c}`); }
       }
       const br = Math.floor(r / 3) * 3, bc = Math.floor(c / 3) * 3;
-      for (let dr = 0; dr < 3; dr++) for (let dc = 0; dc < 3; dc++) {
-        const nr = br + dr, nc = bc + dc;
-        if ((nr !== r || nc !== c) && grid[nr]![nc] === v) { conflicts.add(`${r},${c}`); conflicts.add(`${nr},${nc}`); }
-      }
+      for (let dr = 0; dr < 3; dr++)
+        for (let dc = 0; dc < 3; dc++) {
+          const nr = br + dr, nc = bc + dc;
+          if ((nr !== r || nc !== c) && grid[nr]![nc] === v) {
+            conflicts.add(`${r},${c}`);
+            conflicts.add(`${nr},${nc}`);
+          }
+        }
     }
   }
   return conflicts;
@@ -125,6 +124,10 @@ export default function Sudoku() {
     setElapsed(0);
   }, [difficulty]);
 
+  useEffect(() => {
+    startGame();
+  }, [startGame]);
+
   // Timer
   useEffect(() => {
     if (!puzzle || won) return;
@@ -132,7 +135,8 @@ export default function Sudoku() {
     return () => clearInterval(t);
   }, [puzzle, won, startTime]);
 
-  const formatTime = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+  const formatTime = (s: number) =>
+    `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
   const fillCell = useCallback((num: number) => {
     if (!selected || !userGrid || !solution || !locked) return;
@@ -146,6 +150,7 @@ export default function Sudoku() {
         if (set.has(num)) set.delete(num); else set.add(num);
         return n;
       });
+      sound.play("click");
       return;
     }
 
@@ -153,18 +158,27 @@ export default function Sudoku() {
     newGrid[r]![c] = num === newGrid[r]![c] ? 0 : num;
 
     // Check correctness
-    if (num && newGrid[r]![c] !== solution[r]![c]) setErrors((e) => e + 1);
+    if (num && newGrid[r]![c] !== solution[r]![c]) {
+      setErrors((e) => e + 1);
+      sound.play("error");
+    } else {
+      sound.play("click");
+    }
 
     setUserGrid(newGrid);
-    sound.play("click");
     store.interacted();
 
     if (isSolvedCorrectly(newGrid, solution)) {
       setWon(true);
       sound.play("success");
       const timeBonus = Math.max(0, 600 - elapsed);
-      const score = timeBonus + (difficulty === "hard" ? 300 : difficulty === "medium" ? 150 : 80) - errors * 10;
-      store.submitGameResult("sudoku", { score: Math.max(10, score), accuracy: 1 - errors / 81, time: elapsed * 1000, completed: true });
+      const score = timeBonus + (difficulty === "hard" ? 400 : difficulty === "medium" ? 220 : 120) - errors * 15;
+      store.submitGameResult("sudoku", {
+        score: Math.max(20, score),
+        accuracy: 1 - errors / 81,
+        time: elapsed * 1000,
+        completed: true,
+      });
     }
   }, [selected, userGrid, solution, locked, noteMode, elapsed, difficulty, errors]);
 
@@ -175,10 +189,10 @@ export default function Sudoku() {
       if (/^[1-9]$/.test(e.key)) fillCell(parseInt(e.key));
       else if (e.key === "Backspace" || e.key === "Delete" || e.key === "0") fillCell(0);
       else if (e.key === "n" || e.key === "N") setNoteMode((m) => !m);
-      else if (e.key === "ArrowUp")    setSelected((prev) => prev ? [Math.max(0, prev[0]-1), prev[1]] : prev);
-      else if (e.key === "ArrowDown")  setSelected((prev) => prev ? [Math.min(8, prev[0]+1), prev[1]] : prev);
-      else if (e.key === "ArrowLeft")  setSelected((prev) => prev ? [prev[0], Math.max(0, prev[1]-1)] : prev);
-      else if (e.key === "ArrowRight") setSelected((prev) => prev ? [prev[0], Math.min(8, prev[1]+1)] : prev);
+      else if (e.key === "ArrowUp")    setSelected((prev) => prev ? [Math.max(0, prev[0] - 1), prev[1]] : prev);
+      else if (e.key === "ArrowDown")  setSelected((prev) => prev ? [Math.min(8, prev[0] + 1), prev[1]] : prev);
+      else if (e.key === "ArrowLeft")  setSelected((prev) => prev ? [prev[0], Math.max(0, prev[1] - 1)] : prev);
+      else if (e.key === "ArrowRight") setSelected((prev) => prev ? [prev[0], Math.min(8, prev[1] + 1)] : prev);
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
@@ -186,17 +200,22 @@ export default function Sudoku() {
 
   const conflicts = userGrid ? getConflicts(userGrid) : new Set<string>();
 
-  const cellBg = (r: number, c: number): string => {
+  // Currently selected value
+  const selectedVal = selected && userGrid ? userGrid[selected[0]]![selected[1]] : 0;
+
+  const cellBg = (r: number, c: number, val: number): string => {
     const key = `${r},${c}`;
-    if (won) return "#22c55e20";
-    if (conflicts.has(key)) return "#ef444430";
-    if (selected && selected[0] === r && selected[1] === c) return "#3b82f640";
+    if (won) return "#dcfce7";
+    if (conflicts.has(key)) return "#fee2e2";
+    if (selected && selected[0] === r && selected[1] === c) return "#fef08a"; // Active cell yellow
+    if (selectedVal && val === selectedVal && val !== 0) return "#bbf7d0"; // Matching numbers light green
     if (selected) {
       const [sr, sc] = selected;
-      if (sr === r || sc === c || (Math.floor(sr!/3) === Math.floor(r/3) && Math.floor(sc!/3) === Math.floor(c/3)))
-        return "#1e40af15";
+      if (sr === r || sc === c || (Math.floor(sr! / 3) === Math.floor(r / 3) && Math.floor(sc! / 3) === Math.floor(c / 3))) {
+        return "#f1f5f9"; // Related row/col/box
+      }
     }
-    return "transparent";
+    return "#ffffff";
   };
 
   return (
@@ -205,108 +224,137 @@ export default function Sudoku() {
       status={
         <>
           <Tag>{formatTime(elapsed)}</Tag>
-          <Tag tone="red">ERR {errors}</Tag>
-          {won && <Tag tone="green">SOLVED! 🎉</Tag>}
+          <Tag tone={errors > 0 ? "red" : "blue"}>MISTAKES: {errors}</Tag>
+          {won && <Tag tone="green">SOLVED! 🏆</Tag>}
         </>
       }
       toolbar={
-        <>
-          {(["easy","medium","hard"] as Difficulty[]).map((d) => (
-            <BrutButton key={d} variant={difficulty === d ? "primary" : "default"} onClick={() => { setDifficulty(d); startGame(d); }}>
+        <div className="flex gap-1">
+          {(["easy", "medium", "hard"] as Difficulty[]).map((d) => (
+            <BrutButton
+              key={d}
+              className={`text-[10px] py-0.5 px-2 ${difficulty === d ? "bg-amber-400 text-black font-bold" : ""}`}
+              onClick={() => { setDifficulty(d); startGame(d); }}
+            >
               {d.toUpperCase()}
             </BrutButton>
           ))}
-          <BrutButton variant={noteMode ? "warn" : "default"} onClick={() => setNoteMode((m) => !m)}>
-            📝 NOTES {noteMode ? "ON" : "OFF"}
+          <BrutButton
+            className={`text-[10px] py-0.5 px-2 ${noteMode ? "bg-amber-300 text-black font-bold" : ""}`}
+            onClick={() => setNoteMode((m) => !m)}
+          >
+            ✏️ NOTES {noteMode ? "ON" : "OFF"}
           </BrutButton>
-          <BrutButton variant="go" onClick={() => startGame()}>NEW GAME</BrutButton>
-        </>
+          <BrutButton variant="go" className="text-[10px] py-0.5 px-2" onClick={() => startGame()}>
+            NEW GAME
+          </BrutButton>
+        </div>
       }
     >
-      <div className="flex flex-col items-center gap-3">
-        {!puzzle ? (
-          <div className="text-center space-y-3">
-            <p className="font-display text-2xl">SUDOKU</p>
-            <p className="mono-label text-sm opacity-70">Fill every row, column and 3×3 box with digits 1–9. No repeats!</p>
-            <p className="mono-label text-xs opacity-50">Click a cell to select, then type a number. Press N to toggle note mode.</p>
-            <BrutButton variant="go" onClick={() => startGame()}>START</BrutButton>
-          </div>
-        ) : (
-          <>
-            {/* 9×9 grid */}
-            <div
-              className="brut overflow-hidden"
-              style={{ display: "grid", gridTemplateColumns: "repeat(9, 2.5rem)", gridTemplateRows: "repeat(9, 2.5rem)", border: "3px solid #1e293b" }}
-            >
-              {userGrid!.map((row, r) =>
-                row.map((val, c) => {
-                  const isLocked = locked[r]![c];
-                  const noteSet = notes[r]![c]!;
-                  const hasConflict = conflicts.has(`${r},${c}`);
-                  return (
-                    <div
-                      key={`${r}-${c}`}
-                      onClick={() => !won && setSelected([r, c])}
-                      className="flex items-center justify-center relative"
-                      style={{
-                        width: "2.5rem",
-                        height: "2.5rem",
-                        background: cellBg(r, c),
-                        cursor: isLocked ? "default" : "pointer",
-                        borderRight: c % 3 === 2 && c !== 8 ? "2px solid #475569" : "1px solid #334155",
-                        borderBottom: r % 3 === 2 && r !== 8 ? "2px solid #475569" : "1px solid #334155",
-                        transition: "background 0.15s",
-                      }}
-                    >
-                      {val !== 0 ? (
-                        <span
-                          className="font-display text-lg font-bold"
-                          style={{
-                            color: isLocked ? "#f8fafc" : hasConflict ? "#ef4444" : "#60a5fa",
-                          }}
-                        >
-                          {val}
-                        </span>
-                      ) : noteSet.size > 0 ? (
-                        <div className="grid grid-cols-3 w-full h-full p-px">
-                          {[1,2,3,4,5,6,7,8,9].map((n) => (
-                            <span key={n} className="text-[7px] text-center text-slate-400 leading-none flex items-center justify-center">
-                              {noteSet.has(n) ? n : ""}
-                            </span>
-                          ))}
-                        </div>
-                      ) : null}
-                    </div>
-                  );
-                }),
-              )}
-            </div>
+      <div className="flex h-full w-full flex-col items-center justify-between p-2 font-mono select-none">
+        
+        {/* Header Notification */}
+        <div className="flex w-full max-w-sm items-center justify-between rounded border-2 border-lab-ink bg-stone-900 px-3 py-1.5 text-xs text-white shadow-sm">
+          <span className="font-bold text-amber-400">SUDOKU.EXE ({difficulty.toUpperCase()})</span>
+          <span className="text-[10px] text-stone-400">SELECT CELL & ENTER 1-9</span>
+        </div>
 
-            {/* Number pad */}
-            <div className="flex gap-1">
-              {[1,2,3,4,5,6,7,8,9].map((n) => (
-                <BrutButton
-                  key={n}
-                  onClick={() => fillCell(n)}
-                  className="w-10 h-10 text-lg font-display"
-                  disabled={won}
-                >
-                  {n}
-                </BrutButton>
-              ))}
-              <BrutButton onClick={() => fillCell(0)} disabled={won} className="px-2">⌫</BrutButton>
-            </div>
+        {/* 9x9 Grid Board */}
+        {userGrid && (
+          <div
+            className="my-auto overflow-hidden rounded-lg shadow-2xl border-4 border-lab-ink bg-white"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(9, 2.2rem)",
+              gridTemplateRows: "repeat(9, 2.2rem)",
+            }}
+          >
+            {userGrid.map((row, r) =>
+              row.map((val, c) => {
+                const isLocked = locked[r]?.[c] ?? false;
+                const noteSet = notes[r]?.[c] ?? new Set<number>();
+                const hasConflict = conflicts.has(`${r},${c}`);
+                const isUserPlaced = !isLocked && val !== 0;
 
-            {won && (
-              <div className="brut bg-lab-green px-6 py-3 text-center">
-                <p className="font-display text-xl text-lab-ink">🎉 PUZZLE SOLVED!</p>
-                <p className="mono-label text-sm">Time: {formatTime(elapsed)} · Errors: {errors}</p>
-                <BrutButton variant="primary" className="mt-2" onClick={() => startGame()}>NEW PUZZLE</BrutButton>
-              </div>
+                return (
+                  <button
+                    key={`${r}-${c}`}
+                    type="button"
+                    onClick={() => !won && setSelected([r, c])}
+                    className="relative flex items-center justify-center p-0 transition-colors focus:outline-none"
+                    style={{
+                      width: "2.2rem",
+                      height: "2.2rem",
+                      background: cellBg(r, c, val),
+                      cursor: "pointer",
+                      borderRight: c % 3 === 2 && c !== 8 ? "2.5px solid #0f172a" : "1px solid #cbd5e1",
+                      borderBottom: r % 3 === 2 && r !== 8 ? "2.5px solid #0f172a" : "1px solid #cbd5e1",
+                    }}
+                  >
+                    {val !== 0 ? (
+                      <span
+                        className={`font-display font-black leading-none ${
+                          isLocked
+                            ? "text-[#0f172a] text-lg font-black" // Solid black for given numbers!
+                            : hasConflict
+                            ? "text-red-600 text-lg font-black" // Red for error
+                            : "text-blue-700 text-lg font-bold" // Royal blue for user inputs!
+                        }`}
+                      >
+                        {val}
+                      </span>
+                    ) : noteSet.size > 0 ? (
+                      <div className="grid grid-cols-3 w-full h-full p-0.5 pointer-events-none">
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
+                          <span
+                            key={n}
+                            className="text-[6.5px] font-bold text-center text-slate-500 leading-none flex items-center justify-center"
+                          >
+                            {noteSet.has(n) ? n : ""}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                  </button>
+                );
+              }),
             )}
-          </>
+          </div>
         )}
+
+        {/* Number Pad Controls */}
+        <div className="flex flex-wrap items-center justify-center gap-1.5 w-full max-w-sm">
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
+            <button
+              key={n}
+              type="button"
+              onClick={() => fillCell(n)}
+              disabled={won}
+              className="brut-sm h-9 w-9 bg-card hover:bg-amber-300 active:scale-95 border-2 border-lab-ink text-sm font-display font-black shadow-xs"
+            >
+              {n}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={() => fillCell(0)}
+            disabled={won}
+            title="Erase cell"
+            className="brut-sm h-9 px-3 bg-stone-200 hover:bg-stone-300 active:scale-95 border-2 border-lab-ink text-xs font-bold shadow-xs"
+          >
+            ⌫ ERASE
+          </button>
+        </div>
+
+        {won && (
+          <div className="brut bg-emerald-400 border-2 border-lab-ink px-4 py-2 text-center text-black shadow-lg">
+            <p className="font-display text-lg font-bold">🎉 SUDOKU COMPLETED!</p>
+            <p className="text-xs">Time: {formatTime(elapsed)} · Mistakes: {errors}</p>
+          </div>
+        )}
+
       </div>
     </GameShell>
   );
 }
+

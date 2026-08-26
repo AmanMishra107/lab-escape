@@ -4,7 +4,6 @@ import { BrutButton, Tag } from "../../components/ui/brut";
 import { store } from "../../systems/GameState";
 import { sound } from "../../systems/SoundSystem";
 
-// ─── Word list (200 common 5-letter words) ──────────────────────────────────
 const WORDS = [
   "ABOUT","ABOVE","ABUSE","ACTOR","ACUTE","ADMIT","ADOPT","ADULT","AFTER","AGAIN",
   "AGENT","AGREE","AHEAD","ALARM","ALBUM","ALERT","ALIEN","ALIGN","ALIKE","ALIVE",
@@ -27,13 +26,15 @@ const WORDS = [
   "DIARY","DIGIT","DIRTY","DISCO","DITCH","DIZZY","DODGE","DOING","DOUBT","DOUGH",
 ];
 
-const ALPHABET = "QWERTYUIOPASDFGHJKLZXCVBNM".split("");
 const MAX_GUESSES = 6;
 const WORD_LEN = 5;
 
 type LetterState = "correct" | "present" | "absent" | "empty" | "active";
 
-interface Cell { letter: string; state: LetterState }
+interface Cell {
+  letter: string;
+  state: LetterState;
+}
 
 function makeEmptyRow(): Cell[] {
   return Array.from({ length: WORD_LEN }, () => ({ letter: "", state: "empty" as LetterState }));
@@ -43,41 +44,51 @@ function evaluateGuess(guess: string, target: string): LetterState[] {
   const result: LetterState[] = Array(WORD_LEN).fill("absent");
   const targetArr = target.split("");
   const guessArr = guess.split("");
-  // First pass: correct
+
+  // 1st pass: correct letters (Green)
   const remaining: string[] = [];
   guessArr.forEach((l, i) => {
-    if (l === targetArr[i]) { result[i] = "correct"; targetArr[i] = "*"; }
-    else remaining.push(targetArr[i]!);
+    if (l === targetArr[i]) {
+      result[i] = "correct";
+      targetArr[i] = "*";
+    } else {
+      remaining.push(targetArr[i]!);
+    }
   });
-  // Second pass: present
+
+  // 2nd pass: present letters (Yellow)
   guessArr.forEach((l, i) => {
     if (result[i] === "correct") return;
     const idx = remaining.indexOf(l);
-    if (idx !== -1) { result[i] = "present"; remaining.splice(idx, 1); }
+    if (idx !== -1) {
+      result[i] = "present";
+      remaining.splice(idx, 1);
+    }
   });
+
   return result;
 }
 
 const STATE_STYLE: Record<LetterState, string> = {
-  correct: "bg-green-600 border-green-600 text-white",
-  present: "bg-yellow-500 border-yellow-500 text-white",
-  absent:  "bg-gray-600 border-gray-600 text-gray-300",
-  empty:   "bg-card border-lab-ink text-foreground",
-  active:  "bg-card border-lab-blue text-foreground",
+  correct: "bg-[#538d4e] border-[#538d4e] text-white font-bold",
+  present: "bg-[#b59f3b] border-[#b59f3b] text-white font-bold",
+  absent:  "bg-[#3a3a3c] border-[#3a3a3c] text-stone-300",
+  empty:   "bg-white border-2 border-stone-300 text-stone-900",
+  active:  "bg-white border-2 border-lab-ink text-stone-900 scale-105",
 };
 
 const KEY_STYLE: Record<LetterState | "unused", string> = {
-  correct: "bg-green-600 text-white",
-  present: "bg-yellow-500 text-white",
-  absent:  "bg-gray-700 text-gray-400",
-  empty:   "bg-card text-foreground",
-  active:  "bg-card text-foreground",
-  unused:  "bg-card text-foreground",
+  correct: "bg-[#538d4e] text-white",
+  present: "bg-[#b59f3b] text-white",
+  absent:  "bg-[#3a3a3c] text-stone-400",
+  empty:   "bg-stone-200 text-stone-900",
+  active:  "bg-stone-200 text-stone-900",
+  unused:  "bg-stone-200 text-stone-900",
 };
 
 export default function Wordle() {
-  const answer = useMemo(() => WORDS[Math.floor(Math.random() * WORDS.length)]!, []);
-  const [grid, setGrid] = useState<Cell[][]>(
+  const [answer, setAnswer] = useState(() => WORDS[Math.floor(Math.random() * WORDS.length)]!);
+  const [grid, setGrid] = useState<Cell[][]>(() =>
     Array.from({ length: MAX_GUESSES }, makeEmptyRow),
   );
   const [currentRow, setCurrentRow] = useState(0);
@@ -88,10 +99,15 @@ export default function Wordle() {
   const [msg, setMsg] = useState<string | null>(null);
   const msgTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Reset to a new word
-  const reset = () => {
-    // Reload component by parent key change — simplest approach here is to do a state reset trick
-    window.location.reload(); // simplest way; a real reset would need a key prop on parent
+  const startNewGame = () => {
+    setAnswer(WORDS[Math.floor(Math.random() * WORDS.length)]!);
+    setGrid(Array.from({ length: MAX_GUESSES }, makeEmptyRow));
+    setCurrentRow(0);
+    setCurrentCol(0);
+    setGameOver(false);
+    setWon(false);
+    setMsg(null);
+    sound.play("click");
   };
 
   const showMsg = (text: string) => {
@@ -101,14 +117,29 @@ export default function Wordle() {
   };
 
   const submit = useCallback(() => {
-    if (currentCol < WORD_LEN) { showMsg("Not enough letters"); setShake(currentRow); setTimeout(() => setShake(null), 600); return; }
+    if (gameOver) return;
+    if (currentCol < WORD_LEN) {
+      showMsg("Not enough letters");
+      setShake(currentRow);
+      setTimeout(() => setShake(null), 500);
+      sound.play("warn");
+      return;
+    }
     const guessWord = grid[currentRow]!.map((c) => c.letter).join("");
-    if (!WORDS.includes(guessWord)) { showMsg("Not in word list"); setShake(currentRow); setTimeout(() => setShake(null), 600); return; }
+    if (!WORDS.includes(guessWord)) {
+      showMsg("Not in word list");
+      setShake(currentRow);
+      setTimeout(() => setShake(null), 500);
+      sound.play("warn");
+      return;
+    }
 
     const states = evaluateGuess(guessWord, answer);
     setGrid((prev) => {
       const ng = prev.map((row) => row.map((c) => ({ ...c })));
-      states.forEach((s, i) => { ng[currentRow]![i]!.state = s; });
+      states.forEach((s, i) => {
+        ng[currentRow]![i]!.state = s;
+      });
       return ng;
     });
 
@@ -120,24 +151,24 @@ export default function Wordle() {
         sound.play("success");
         const xp = (MAX_GUESSES - currentRow) * 50 + 100;
         store.submitGameResult("wordle", { score: xp, accuracy: 1, time: 1, completed: true });
-        showMsg(["GENIUS!", "MAGNIFICENT!", "IMPRESSIVE!", "SPLENDID!", "GREAT!", "PHEW!"][currentRow] ?? "NICE!");
-      }, 300 * WORD_LEN);
+        showMsg(["GENIUS! 🧠", "MAGNIFICENT! ✨", "IMPRESSIVE! 🎯", "SPLENDID! 🌟", "GREAT! 👍", "PHEW! 😅"][currentRow] ?? "NICE!");
+      }, 250);
     } else if (currentRow + 1 >= MAX_GUESSES) {
       setTimeout(() => {
         setGameOver(true);
         sound.play("error");
         store.submitGameResult("wordle", { score: 10, accuracy: 0, time: 1, completed: false });
-        showMsg(`Answer: ${answer}`);
-      }, 300 * WORD_LEN);
+        showMsg(`Word was: ${answer}`);
+      }, 250);
     }
 
     sound.play("click");
     setCurrentRow((r) => r + 1);
     setCurrentCol(0);
     store.interacted();
-  }, [currentCol, currentRow, grid, answer]);
+  }, [currentCol, currentRow, grid, answer, gameOver]);
 
-  const type = useCallback(
+  const typeLetter = useCallback(
     (letter: string) => {
       if (gameOver || currentCol >= WORD_LEN) return;
       setGrid((prev) => {
@@ -147,12 +178,13 @@ export default function Wordle() {
         return ng;
       });
       setCurrentCol((c) => c + 1);
+      sound.play("key");
     },
     [gameOver, currentCol, currentRow],
   );
 
   const backspace = useCallback(() => {
-    if (currentCol === 0) return;
+    if (gameOver || currentCol === 0) return;
     setGrid((prev) => {
       const ng = prev.map((row) => row.map((c) => ({ ...c })));
       ng[currentRow]![currentCol - 1]!.letter = "";
@@ -160,20 +192,21 @@ export default function Wordle() {
       return ng;
     });
     setCurrentCol((c) => c - 1);
-  }, [currentCol, currentRow]);
+    sound.play("key");
+  }, [currentCol, currentRow, gameOver]);
 
-  // Keyboard input
+  // Physical Keyboard input
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Enter") submit();
       else if (e.key === "Backspace") backspace();
-      else if (/^[a-zA-Z]$/.test(e.key)) type(e.key.toUpperCase());
+      else if (/^[a-zA-Z]$/.test(e.key)) typeLetter(e.key.toUpperCase());
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [submit, backspace, type]);
+  }, [submit, backspace, typeLetter]);
 
-  // Build keyboard letter → state map
+  // Keyboard letter states
   const letterState: Record<string, LetterState> = {};
   grid.forEach((row) => {
     row.forEach(({ letter, state }) => {
@@ -191,45 +224,46 @@ export default function Wordle() {
       status={
         <>
           <Tag tone={won ? "green" : gameOver ? "red" : "blue"}>
-            {won ? "WON" : gameOver ? "LOST" : `GUESS ${currentRow + 1}/${MAX_GUESSES}`}
+            {won ? "WON 🏆" : gameOver ? "LOST" : `GUESS ${currentRow + 1}/${MAX_GUESSES}`}
           </Tag>
         </>
       }
       toolbar={
-        <BrutButton variant="go" onClick={() => window.location.reload()}>NEW WORD</BrutButton>
+        <BrutButton variant="go" onClick={startNewGame} className="text-xs py-1">
+          🔄 NEW WORD
+        </BrutButton>
       }
     >
-      <div className="flex flex-col items-center gap-3 w-full select-none">
-        {/* Rules */}
-        <p className="mono-label text-xs opacity-60 text-center">
-          Guess the 5-letter word in 6 tries. 🟩 = correct spot · 🟨 = wrong spot · ⬛ = not in word
-        </p>
+      <div className="flex h-full w-full flex-col items-center justify-between p-2 font-mono select-none">
+        
+        {/* Rules & Message Toast */}
+        <div className="relative flex w-full max-w-sm items-center justify-between rounded border-2 border-lab-ink bg-stone-900 px-3 py-1.5 text-xs text-white shadow-sm">
+          <span className="font-bold text-amber-400">WORDLE.EXE</span>
+          <span className="text-[10px] text-stone-400">5-LETTER HIDDEN WORD</span>
 
-        {/* Toast message */}
-        {msg && (
-          <div className="brut bg-lab-ink text-lab-paper px-4 py-2 mono-label text-sm text-center">
-            {msg}
-          </div>
-        )}
+          {msg && (
+            <div className="absolute top-10 left-1/2 -translate-x-1/2 z-30 brut bg-amber-300 text-black px-4 py-1 font-bold text-xs shadow-xl border-2 border-lab-ink animate-bounce">
+              {msg}
+            </div>
+          )}
+        </div>
 
-        {/* Grid */}
-        <div className="flex flex-col gap-1">
+        {/* 6x5 Wordle Matrix Grid */}
+        <div className="my-auto flex flex-col gap-1.5">
           {grid.map((row, r) => (
             <div
               key={r}
-              className="flex gap-1"
-              style={{ animation: shake === r ? "shake 0.5s ease" : undefined }}
+              className="flex gap-1.5"
+              style={{
+                animation: shake === r ? "shake 0.4s ease" : undefined,
+              }}
             >
               {row.map((cell, c) => (
                 <div
                   key={c}
-                  className={`flex items-center justify-center border-2 font-display text-2xl font-bold transition-all duration-300 ${STATE_STYLE[cell.state]}`}
-                  style={{
-                    width: "3.25rem",
-                    height: "3.25rem",
-                    transitionDelay: r < currentRow ? `${c * 100}ms` : "0ms",
-                    transform: cell.letter && cell.state === "active" ? "scale(1.06)" : "scale(1)",
-                  }}
+                  className={`flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-sm font-display text-xl sm:text-2xl font-black transition-all duration-200 border-2 ${
+                    STATE_STYLE[cell.state]
+                  }`}
                 >
                   {cell.letter}
                 </div>
@@ -238,34 +272,41 @@ export default function Wordle() {
           ))}
         </div>
 
-        {/* On-screen keyboard */}
-        <div className="flex flex-col gap-1 mt-2">
+        {/* On-screen QWERTY Keyboard */}
+        <div className="flex flex-col gap-1.5 w-full max-w-md">
           {["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"].map((rowStr, ri) => (
             <div key={ri} className="flex gap-1 justify-center">
               {ri === 2 && (
                 <button
+                  type="button"
                   onClick={submit}
-                  className="brut brut-press mono-label px-2 py-2 text-xs bg-lab-green text-lab-ink"
-                  style={{ minWidth: "3.5rem", height: "3.25rem" }}
+                  className="brut-sm px-2 py-1.5 text-[10px] font-bold bg-emerald-400 hover:bg-emerald-300 text-black border border-lab-ink active:scale-95"
+                  style={{ minWidth: "3.2rem", height: "2.4rem" }}
                 >
                   ENTER
                 </button>
               )}
+
               {rowStr.split("").map((l) => (
                 <button
                   key={l}
-                  onClick={() => type(l)}
-                  className={`brut brut-press mono-label font-bold ${KEY_STYLE[letterState[l] ?? "unused"]}`}
-                  style={{ width: "2.25rem", height: "3.25rem", fontSize: "0.9rem" }}
+                  type="button"
+                  onClick={() => typeLetter(l)}
+                  className={`brut-sm text-xs font-bold border border-lab-ink/40 active:scale-95 ${
+                    KEY_STYLE[letterState[l] ?? "unused"]
+                  }`}
+                  style={{ width: "2rem", height: "2.4rem" }}
                 >
                   {l}
                 </button>
               ))}
+
               {ri === 2 && (
                 <button
+                  type="button"
                   onClick={backspace}
-                  className="brut brut-press mono-label px-2 py-2 text-xs bg-card"
-                  style={{ minWidth: "3.5rem", height: "3.25rem" }}
+                  className="brut-sm px-2 py-1.5 text-xs font-bold bg-stone-300 hover:bg-stone-200 text-black border border-lab-ink active:scale-95"
+                  style={{ minWidth: "3.2rem", height: "2.4rem" }}
                 >
                   ⌫
                 </button>
@@ -274,23 +315,19 @@ export default function Wordle() {
           ))}
         </div>
 
-        {gameOver && (
-          <div className="brut px-4 py-2 text-center" style={{ background: won ? "#22c55e" : "#ef4444" }}>
-            <p className="mono-label font-bold text-white">{won ? `🎉 ${msg}` : `💀 ${answer} was the word`}</p>
-          </div>
-        )}
-      </div>
+        {/* CSS Keyframes for Shake */}
+        <style>{`
+          @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-6px); }
+            40% { transform: translateX(6px); }
+            60% { transform: translateX(-6px); }
+            80% { transform: translateX(6px); }
+          }
+        `}</style>
 
-      {/* Shake keyframe */}
-      <style>{`
-        @keyframes shake {
-          0%,100%{ transform:translateX(0) }
-          20%{ transform:translateX(-6px) }
-          40%{ transform:translateX(6px) }
-          60%{ transform:translateX(-6px) }
-          80%{ transform:translateX(6px) }
-        }
-      `}</style>
+      </div>
     </GameShell>
   );
 }
+

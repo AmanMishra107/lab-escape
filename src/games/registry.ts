@@ -30,4 +30,8 @@ export const GAME_COMPONENTS: Record<GameId, LazyExoticComponent<ComponentType>>
   asteroids: lazy(() => import("./asteroids/Asteroids")),
   battleship: lazy(() => import("./battleship/Battleship")),
   ludo: lazy(() => import("./ludo/Ludo")),
+
+  // 🏎️ NEW ARCADE EXPANSION
+  racer: lazy(() => import("./racer/Racer")),
+  stack: lazy(() => import("./stack/Stack")),
 };

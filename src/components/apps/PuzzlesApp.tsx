@@ -1,21 +1,10 @@
 import { useEffect, useState } from "react";
-import { COMPANY_TIERS, type AptitudeQuestion, type CompanyTier } from "../../data/aptitudeQuestions";
-import { PUZZLES } from "../../data/puzzles";
-import { store, useLab } from "../../systems/GameState";
+import { COMPANY_TIERS, type CompanyTier } from "../../data/aptitudeQuestions";
+import { store } from "../../systems/GameState";
 import { sound } from "../../systems/SoundSystem";
 import { BrutButton, Tag } from "../ui/brut";
 
-type MainTab = "puzzles" | "aptitude";
-
 export function PuzzlesApp() {
-  const [activeTab, setActiveTab] = useState<MainTab>("aptitude");
-  const solved = useLab((s) => s.save.puzzles);
-
-  // Puzzle State
-  const [puzzleAnswers, setPuzzleAnswers] = useState<Record<string, string>>({});
-  const [hints, setHints] = useState<string[]>([]);
-  const [wrongPuzzle, setWrongPuzzle] = useState<string | null>(null);
-
   // Aptitude Assessment State
   const [selectedTier, setSelectedTier] = useState<CompanyTier>(COMPANY_TIERS[0]!);
   const [inExam, setInExam] = useState(false);
@@ -92,92 +81,15 @@ export function PuzzlesApp() {
       {/* Header Info */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-lab-ink pb-2 mb-2 shrink-0">
         <div>
-          <h2 className="font-display text-xl font-black">PUZZLES.BIN — RECRUITMENT & CIPHERS</h2>
+          <h2 className="font-display text-xl font-black">🎓 CAMPUS RECRUITMENT & PLACEMENT ASSESSMENT</h2>
           <p className="mono-label text-[10px] text-stone-500">
-            10 LAB CIPHERS · 90 CAMPUS PLACEMENT MCQs
+            90 CAMPUS PLACEMENT MCQs · 3 COMPANY ASSESSMENT TIERS
           </p>
-        </div>
-        <div className="flex gap-1">
-          <BrutButton
-            className={`text-xs py-1 ${activeTab === "aptitude" ? "bg-amber-400 text-black font-black" : "bg-white"}`}
-            onClick={() => { sound.play("click"); setActiveTab("aptitude"); }}
-          >
-            🎓 CAMPUS PLACEMENT (90 MCQs)
-          </BrutButton>
-          <BrutButton
-            className={`text-xs py-1 ${activeTab === "puzzles" ? "bg-amber-400 text-black font-black" : "bg-white"}`}
-            onClick={() => { sound.play("click"); setActiveTab("puzzles"); }}
-          >
-            🧩 LAB CIPHERS ({solved.length}/10)
-          </BrutButton>
         </div>
       </div>
 
-      {/* ========================================================================= */}
-      {/* TAB 1: 10 INTERACTIVE LAB CIPHERS & PUZZLES */}
-      {/* ========================================================================= */}
-      {activeTab === "puzzles" && (
-        <div className="space-y-3 flex-1 overflow-y-auto pr-1">
-          <p className="mono-label">PUZZLES SOLVED — {solved.length}/{PUZZLES.length}</p>
-          {PUZZLES.map((p) => {
-            const done = solved.includes(p.id);
-            return (
-              <form
-                key={p.id}
-                className={`brut-sm p-3 border-2 border-lab-ink ${done ? "bg-emerald-100 border-emerald-600" : "bg-card"} ${wrongPuzzle === p.id ? "glitching" : ""}`}
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const raw = (puzzleAnswers[p.id] ?? "").trim().toLowerCase();
-                  if (!raw) return;
-                  if (p.answer.some((a) => raw === a || raw.replace(/\s+/g, "") === a.replace(/\s+/g, ""))) {
-                    sound.play("success");
-                    store.solvePuzzle(p.id, p.reward);
-                    if (p.grants) store.giveItem(p.grants);
-                  } else {
-                    sound.play("error");
-                    setWrongPuzzle(p.id);
-                    setTimeout(() => setWrongPuzzle(null), 400);
-                  }
-                }}
-              >
-                <div className="flex items-center justify-between gap-2 border-b pb-1 border-stone-300">
-                  <h4 className="font-display text-lg font-black text-stone-900">{p.name}</h4>
-                  <Tag tone={done ? "green" : "yellow"}>{done ? "SOLVED ✓" : `${p.reward} XP`}</Tag>
-                </div>
-                <p className="mt-2 font-mono text-xs leading-relaxed text-stone-800">{p.prompt}</p>
-                {hints.includes(p.id) && !done && (
-                  <p className="mono-label mt-2 text-[10px] text-amber-700 bg-amber-50 p-1 border border-amber-300">
-                    💡 HINT: {p.hint}
-                  </p>
-                )}
-                {!done && (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <input
-                      aria-label={`Answer for ${p.name}`}
-                      value={puzzleAnswers[p.id] ?? ""}
-                      onChange={(e) => setPuzzleAnswers((a) => ({ ...a, [p.id]: e.target.value.slice(0, 60) }))}
-                      className="brut-sm min-h-10 flex-1 bg-white px-2 border-2 border-lab-ink font-mono text-xs"
-                      placeholder="enter answer..."
-                    />
-                    <BrutButton type="submit" variant="go" className="text-xs">
-                      SUBMIT
-                    </BrutButton>
-                    <BrutButton type="button" className="text-xs" onClick={() => setHints((h) => [...h, p.id])}>
-                      HINT
-                    </BrutButton>
-                  </div>
-                )}
-              </form>
-            );
-          })}
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* TAB 2: CAMPUS PLACEMENT APTITUDE & TECHNICAL EXAM (90 MCQs) */}
-      {/* ========================================================================= */}
-      {activeTab === "aptitude" && (
-        <div className="flex-1 flex flex-col justify-between overflow-y-auto">
+      {/* CAMPUS PLACEMENT APTITUDE & TECHNICAL EXAM */}
+      <div className="flex-1 flex flex-col justify-between overflow-y-auto">
           {/* STEP 1: COMPANY TIER SELECTOR */}
           {!inExam && !examSubmitted && (
             <div className="space-y-3 my-auto">
@@ -448,7 +360,6 @@ export function PuzzlesApp() {
             </div>
           )}
         </div>
-      )}
     </div>
   );
 }

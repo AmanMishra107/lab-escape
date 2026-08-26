@@ -252,6 +252,28 @@ export const GAMES: GameMeta[] = [
     controls: "Click dice to roll, tap token to move",
     players: "1-4 PLAYERS",
   },
+
+  // 🏎️ NEW ARCADE & ACTION EXPANSION (26-30)
+  {
+    id: "racer",
+    name: "NIGHT RACER.EXE",
+    tagline: "High-octane retro highway traffic racing with turbo nitro & drifting!",
+    difficulty: "medium",
+    category: "quick",
+    xpMultiplier: 2.2,
+    controls: "Left/Right (Steer), Up/W (Gas), Space (Nitro Boost)",
+    players: "SOLO",
+  },
+  {
+    id: "stack",
+    name: "TOWER STACK.EXE",
+    tagline: "Precision timing block stacking! Slice overhangs & reach the stratosphere.",
+    difficulty: "medium",
+    category: "quick",
+    xpMultiplier: 1.8,
+    controls: "Space / Click / Tap to drop block",
+    players: "SOLO",
+  },
 ];
 
 export const GAME_MAP = new Map(GAMES.map((g) => [g.id, g]));
