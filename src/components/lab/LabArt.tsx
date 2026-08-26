@@ -354,7 +354,16 @@ export function LabArt({ phase, boot }: { phase: Phase; boot: boolean }) {
 
       {/* ─── 8D. ACCESSORIES ON DESK ─── */}
       {/* Detailed Desk Trash Bin with Funny Charts, Pen, Paper & Snacks */}
-      <g transform="translate(180 505)">
+      <g
+        transform="translate(180 505)"
+        style={{ cursor: "pointer" }}
+        onClick={() => store.focusObject("trash")}
+        role="button"
+        aria-label="Desk Trash Bin - Click to inspect"
+      >
+        {/* Hover shimmer overlay */}
+        <path d="M0 0 L90 0 L80 115 L10 115 Z" fill="white" opacity="0" className="hover:opacity-15" style={{ transition: "opacity 0.15s" }} />
+
         {/* Overflowing Trash Items Inside Can */}
         {/* 1. Crumpled Chart (MY MARKS 📉) */}
         <g transform="translate(-14 -22) rotate(-14)">
@@ -403,6 +412,7 @@ export function LabArt({ phase, boot }: { phase: Phase; boot: boolean }) {
         <rect x="23" y="60" width="44" height="20" rx="2" fill="var(--color-lab-yellow)" stroke="var(--color-lab-ink)" strokeWidth="2" />
         <text x="45" y="73" textAnchor="middle" fontFamily="var(--font-mono)" fontWeight="900" fontSize="7.5" fill="var(--color-lab-ink)">TRASH</text>
       </g>
+
 
       {/* Coffee Mug */}
       <g transform="translate(290 555)">

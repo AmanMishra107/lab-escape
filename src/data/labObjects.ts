@@ -23,8 +23,10 @@ export const LAB_OBJECTS: LabObject[] = [
   { id: "drawer", label: "Desk Drawer Cabinet", hint: "3 tiers. Your lab partner said it holds secrets.", x: 76.2, y: 72.5, w: 12, h: 19.4, zoom: 3.6 },
   { id: "printer", label: "Printer 2", hint: "Prints things nobody sent.", x: 83.7, y: 48.8, w: 13.5, h: 19.4, zoom: 3.4 },
   { id: "stickynote", label: "Sticky Note", hint: "Someone's reminder. You can edit it.", x: 15.0, y: 42.5, w: 6.5, h: 9.5, zoom: 4.2 },
+  { id: "trash", label: "Desk Trash Bin", hint: "Archaeology & discarded ideas.", x: 11.2, y: 56.0, w: 6.5, h: 13.0, zoom: 3.8 },
   { id: "cpu", label: "Workstation Tower (CPU)", hint: "The overclocked powerhouse behind Lab 404.", x: 65.5, y: 40.0, w: 8.5, h: 28.0, zoom: 3.5 },
 ];
+
 
 
 
