@@ -404,10 +404,10 @@ export function LabArt({ phase, boot }: { phase: Phase; boot: boolean }) {
         {/* Outer Trash Can Mesh Container */}
         <path d="M5 25 L85 25 L75 110 L15 110 Z" fill="var(--color-card)" stroke="var(--color-lab-ink)" strokeWidth="5" />
         <rect x="0" y="16" width="90" height="12" rx="3" fill="var(--color-lab-paper)" stroke="var(--color-lab-ink)" strokeWidth="4" />
-        
+
         {/* Mesh Wire Lines */}
         <path d="M12 36 H78 M14 56 H76 M16 76 H74 M18 96 H72" stroke="var(--color-lab-ink)" strokeWidth="2" strokeDasharray="5 3" opacity="0.65" />
-        
+
         {/* Trash Can Badge */}
         <rect x="23" y="60" width="44" height="20" rx="2" fill="var(--color-lab-yellow)" stroke="var(--color-lab-ink)" strokeWidth="2" />
         <text x="45" y="73" textAnchor="middle" fontFamily="var(--font-mono)" fontWeight="900" fontSize="7.5" fill="var(--color-lab-ink)">TRASH</text>
@@ -719,7 +719,7 @@ export function LabArt({ phase, boot }: { phase: Phase; boot: boolean }) {
         <rect x="18" y="20" width="89" height="20" fill="var(--color-lab-ink)" opacity="0.4" />
         <rect x="24" y="28" width="60" height="4" fill="var(--color-lab-paper)" opacity="0.6" />
         <circle cx="95" cy="30" r="2.5" fill="var(--color-lab-paper)" opacity="0.8" />
-        
+
         <rect x="18" y="48" width="89" height="14" fill="var(--color-lab-ink)" opacity="0.25" />
         <rect x="24" y="53" width="40" height="4" fill="var(--color-lab-paper)" opacity="0.6" />
 

@@ -34,4 +34,9 @@ export const GAME_COMPONENTS: Record<GameId, LazyExoticComponent<ComponentType>>
   // 🏎️ NEW ARCADE EXPANSION
   racer: lazy(() => import("./racer/Racer")),
   stack: lazy(() => import("./stack/Stack")),
+
+  // 🎹 2010s NOSTALGIA PACK
+  pianotiles: lazy(() => import("./pianotiles/PianoTiles")),
+  geodash: lazy(() => import("./geodash/GeoDash")),
+  doodlejump: lazy(() => import("./doodlejump/DoodleJump")),
 };

@@ -274,6 +274,38 @@ export const GAMES: GameMeta[] = [
     controls: "Space / Click / Tap to drop block",
     players: "SOLO",
   },
+
+  // 🎹 2010s NOSTALGIA PACK
+  {
+    id: "pianotiles",
+    name: "PIANO TILES.EXE",
+    tagline: "Tap the black tiles. Miss one — game over. Don't tap white.",
+    difficulty: "hard",
+    category: "quick",
+    xpMultiplier: 2.0,
+    controls: "Click / tap tiles · Speed increases with score",
+    players: "SOLO",
+  },
+  {
+    id: "geodash",
+    name: "GEO DASH.EXE",
+    tagline: "Jump spikes, fly through blocks, hit portals to shapeshift. One touch.",
+    difficulty: "hard",
+    category: "quick",
+    xpMultiplier: 2.2,
+    controls: "Space / Click / Hold to fly (ship mode)",
+    players: "SOLO",
+  },
+  {
+    id: "doodlejump",
+    name: "DOODLE JUMP.EXE",
+    tagline: "Bounce up forever. Collect jetpacks & spring shoes. Don't fall.",
+    difficulty: "easy",
+    category: "quick",
+    xpMultiplier: 1.8,
+    controls: "Mouse move / Arrow keys ← →",
+    players: "SOLO",
+  },
 ];
 
 export const GAME_MAP = new Map(GAMES.map((g) => [g.id, g]));

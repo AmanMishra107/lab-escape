@@ -54,7 +54,11 @@ export type GameId =
   | "ludo"
   // 🏎️ NEW ARCADE EXPANSION
   | "racer"
-  | "stack";
+  | "stack"
+  // 🎮 2010s NOSTALGIA PACK
+  | "pianotiles"
+  | "geodash"
+  | "doodlejump";
 
 export interface GameResult {
   gameId: GameId;

@@ -276,9 +276,8 @@ function ClockPanel() {
         {/* Digital countdown */}
         <div className="flex flex-col items-center gap-1">
           <button
-            className={`relative overflow-hidden border-3 border-lab-ink bg-lab-paper px-5 py-3 font-display tabular-nums transition-transform ${
-              shake ? "scale-95" : hovered ? "scale-105" : "scale-100"
-            }`}
+            className={`relative overflow-hidden border-3 border-lab-ink bg-lab-paper px-5 py-3 font-display tabular-nums transition-transform ${shake ? "scale-95" : hovered ? "scale-105" : "scale-100"
+              }`}
             style={{
               fontSize: "clamp(2rem, 5vw, 3.5rem)",
               letterSpacing: "-0.02em",
@@ -404,12 +403,52 @@ function ClockPanel() {
 function WindowPanel() {
   const [seconds, setSeconds] = useState(0);
   const [mode, setMode] = useState<"day" | "rain" | "night" | "sunset">("day");
-  const [planes, setPlanes] = useState<{ id: number; x: number; y: number; text: string }[]>([]);
-  const [birds, setBirds] = useState<{ id: number; x: number; y: number; type: "bird" | "ufo" | "drone" }[]>([]);
+  const [planes, setPlanes] = useState<{ id: number; text: string; startY: number; duration: number }[]>([]);
+  const [birds, setBirds] = useState<{ id: number; x: number; y: number; wobble: number; type: "bird" | "ufo" | "drone" }[]>([]);
   const [score, setScore] = useState(0);
   const [radioActive, setRadioActive] = useState(false);
   const [planeCount, setPlaneCount] = useState(0);
+  const [burstParticles, setBurstParticles] = useState<{ id: number; x: number; y: number; vx: number; vy: number; life: number; color: string; size: number }[]>([]);
+  const [wipedZones, setWipedZones] = useState<{ x: number; y: number; r: number; id: number }[]>([]);
+  const [lightning, setLightning] = useState(false);
+  const [lightningPath, setLightningPath] = useState<string>("");
+  const [sunPos, setSunPos] = useState(0); // 0-100 across the sky
+  const [cloudOffset, setCloudOffset] = useState(0);
+  const [wipeMode, setWipeMode] = useState(false);
+  const [condensationDrops, setCondensationDrops] = useState<{ id: number; x: number; y: number; vy: number; size: number; opacity: number }[]>([]);
+  const [stars, setStars] = useState<{ x: number; y: number; twinkle: number; size: number }[]>([]);
 
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
+
+  // Clear any stale planes on mount (HMR / navigation)
+  useEffect(() => { setPlanes([]); }, []);
+
+  // Generate stars once
+  useEffect(() => {
+    setStars(
+      Array.from({ length: 80 }, (_, i) => ({
+        x: Math.random() * 100,
+        y: Math.random() * 70,
+        twinkle: Math.random() * Math.PI * 2,
+        size: 0.5 + Math.random() * 2,
+      }))
+    );
+    setCondensationDrops(
+      Array.from({ length: 18 }, (_, i) => ({
+        id: i,
+        x: 5 + Math.random() * 90,
+        y: Math.random() * 80,
+        vy: 0.04 + Math.random() * 0.12,
+        size: 3 + Math.random() * 7,
+        opacity: 0.3 + Math.random() * 0.5,
+      }))
+    );
+  }, []);
+
+  // Seconds counter
   useEffect(() => {
     const t = window.setInterval(() => setSeconds((s) => s + 1), 1000);
     return () => window.clearInterval(t);
@@ -419,45 +458,137 @@ function WindowPanel() {
     if (seconds >= 20) store.findEgg("window_stare");
   }, [seconds]);
 
+  // Slow sun/cloud drift
+  useEffect(() => {
+    let raf: number;
+    let t = 0;
+    const tick = () => {
+      t += 0.003;
+      setSunPos((prev) => (prev + 0.012) % 110);
+      setCloudOffset((prev) => (prev + 0.05) % 200);
+      setStars((prev) => prev.map((s) => ({ ...s, twinkle: s.twinkle + 0.04 })));
+      // condensation drip
+      setCondensationDrops((prev) =>
+        prev.map((d) => {
+          const ny = d.y + d.vy;
+          return ny > 98 ? { ...d, y: Math.random() * 10, x: 5 + Math.random() * 90, opacity: 0.3 + Math.random() * 0.5 } : { ...d, y: ny };
+        })
+      );
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  // Lightning effect during rain
+  useEffect(() => {
+    if (mode !== "rain") return;
+    const t = window.setInterval(() => {
+      if (Math.random() < 0.25) {
+        // Generate a jagged lightning path
+        const startX = 20 + Math.random() * 60;
+        let path = `M ${startX} 0`;
+        let cx = startX;
+        for (let i = 1; i <= 8; i++) {
+          cx += (Math.random() - 0.5) * 20;
+          path += ` L ${Math.min(95, Math.max(5, cx))} ${i * 12}`;
+        }
+        setLightningPath(path);
+        setLightning(true);
+        setTimeout(() => setLightning(false), 120);
+        setTimeout(() => {
+          setLightning(true);
+          setTimeout(() => setLightning(false), 80);
+        }, 180);
+      }
+    }, 2500);
+    return () => window.clearInterval(t);
+  }, [mode]);
+
+  // Canvas-based rain streaks
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    type RainDrop = { x: number; y: number; len: number; speed: number; opacity: number };
+    const drops: RainDrop[] = Array.from({ length: 120 }, () => ({
+      x: Math.random() * 100,
+      y: Math.random() * 100,
+      len: 6 + Math.random() * 12,
+      speed: 1.8 + Math.random() * 2.4,
+      opacity: 0.3 + Math.random() * 0.5,
+    }));
+
+    let raf: number;
+    const draw = () => {
+      const W = canvas.width;
+      const H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      if (modeRef.current === "rain") {
+        ctx.strokeStyle = "#94a3b8";
+        ctx.lineWidth = 1;
+        for (const d of drops) {
+          ctx.globalAlpha = d.opacity;
+          ctx.beginPath();
+          const px = (d.x / 100) * W;
+          const py = (d.y / 100) * H;
+          ctx.moveTo(px, py);
+          ctx.lineTo(px - d.len * 0.3, py + d.len);
+          ctx.stroke();
+          d.y += d.speed * 0.5;
+          d.x -= d.speed * 0.15;
+          if (d.y > 100) { d.y = -5; d.x = Math.random() * 100; }
+        }
+        ctx.globalAlpha = 1;
+      }
+
+      raf = requestAnimationFrame(draw);
+    };
+    raf = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  // Bird spawner
   useEffect(() => {
     const interval = window.setInterval(() => {
       if (Math.random() < 0.6) {
         const id = Date.now();
         const types: ("bird" | "ufo" | "drone")[] = mode === "night" ? ["ufo", "bird"] : ["bird", "drone"];
         const type = types[Math.floor(Math.random() * types.length)]!;
-        const newTarget = {
-          id,
-          x: -10,
-          y: 15 + Math.random() * 65,
-          type,
-        };
-        setBirds((prev) => [...prev.slice(-6), newTarget]);
+        setBirds((prev) => [...prev.slice(-6), { id, x: -10, y: 15 + Math.random() * 65, wobble: 0, type }]);
       }
     }, 2800);
     return () => window.clearInterval(interval);
   }, [mode]);
 
+  // Animation loop for birds, planes, particles
   useEffect(() => {
-    const anim = window.setInterval(() => {
+    let raf: number;
+    const tick = () => {
+      timeRef.current += 1;
       setBirds((prev) =>
         prev
-          .map((b) => ({ ...b, x: b.x + 2.5 }))
-          .filter((b) => b.x < 110),
+          .map((b) => ({ ...b, x: b.x + (b.type === "ufo" ? 1.2 : 2.5), wobble: b.wobble + 0.08 }))
+          .filter((b) => b.x < 115)
       );
-      setPlanes((prev) =>
+      setBurstParticles((prev) =>
         prev
-          .map((p) => ({ ...p, x: p.x + 3.5, y: p.y - 0.4 }))
-          .filter((p) => p.x < 110),
+          .map((p) => ({ ...p, x: p.x + p.vx, y: p.y + p.vy, vy: p.vy + 0.15, life: p.life - 1, size: p.size * 0.97 }))
+          .filter((p) => p.life > 0)
       );
-    }, 50);
-    return () => window.clearInterval(anim);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
   }, []);
 
+  // Radio boredom reducer
   useEffect(() => {
     if (!radioActive) return;
-    const interval = window.setInterval(() => {
-      store.reduceBoredom(1);
-    }, 3000);
+    const interval = window.setInterval(() => store.reduceBoredom(1), 3000);
     return () => window.clearInterval(interval);
   }, [radioActive]);
 
@@ -468,11 +599,7 @@ function WindowPanel() {
     store.addXp(10, "Paper plane launched");
     const count = planeCount + 1;
     setPlaneCount(count);
-
-    if (count >= 3) {
-      store.findEgg("paper_pilot");
-      store.unlock("paper_pilot");
-    }
+    if (count >= 3) { store.findEgg("paper_pilot"); store.unlock("paper_pilot"); }
 
     const planeTexts = [
       "24.5m ➔ Landed on canteen roof!",
@@ -480,18 +607,42 @@ function WindowPanel() {
       "19.2m ➔ Caught in tree branch!",
       "45.0m ➔ Flew out of campus boundaries!",
     ];
-
     const text = planeTexts[Math.floor(Math.random() * planeTexts.length)]!;
-    setPlanes((prev) => [...prev, { id: Date.now(), x: 10, y: 70, text }]);
+    const id = Date.now();
+    // Vary the start height and flight duration slightly each throw
+    const startY = 68 + Math.random() * 12; // 68–80% from top
+    const duration = 2.8 + Math.random() * 0.8; // 2.8–3.6 seconds
+    setPlanes((prev) => [...prev, { id, text, startY, duration }]);
+    // Auto-remove after animation completes + a little buffer
+    setTimeout(() => setPlanes((prev) => prev.filter((p) => p.id !== id)), (duration + 0.3) * 1000);
   };
 
-  const catchTarget = (id: number, type: string) => {
+  const catchTarget = (id: number, type: string, ex: number, ey: number) => {
     sound.play(type === "ufo" ? "glitch" : "success");
     store.interacted();
     store.reduceBoredom(6);
     store.addXp(15, `Spotted ${type}`);
     setScore((s) => s + 1);
     setBirds((prev) => prev.filter((b) => b.id !== id));
+
+    // Burst particles at click position
+    const colors = type === "ufo"
+      ? ["#34d399", "#6ee7b7", "#a7f3d0", "#fbbf24", "#f59e0b"]
+      : type === "drone"
+        ? ["#38bdf8", "#7dd3fc", "#bae6fd", "#e0f2fe"]
+        : ["#fde68a", "#fbbf24", "#fb923c", "#f87171"];
+    setBurstParticles((prev) => [
+      ...prev,
+      ...Array.from({ length: 20 }, (_, i) => ({
+        id: Date.now() + i,
+        x: ex, y: ey,
+        vx: (Math.random() - 0.5) * 6,
+        vy: (Math.random() - 0.8) * 6,
+        life: 35 + Math.random() * 20,
+        color: colors[Math.floor(Math.random() * colors.length)]!,
+        size: 4 + Math.random() * 5,
+      })),
+    ]);
 
     if (type === "ufo") {
       store.findEgg("ufo_spotter");
@@ -500,10 +651,31 @@ function WindowPanel() {
     }
   };
 
+  const handleWindowClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!wipeMode) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    const id = Date.now();
+    setWipedZones((prev) => [...prev.slice(-8), { x, y, r: 8 + Math.random() * 4, id }]);
+  };
+
+  // Sky gradients by mode
+  const skyGradients: Record<string, string> = {
+    day: "linear-gradient(to bottom, #38bdf8 0%, #7dd3fc 35%, #bae6fd 70%, #fef3c7 100%)",
+    rain: "linear-gradient(to bottom, #0f172a 0%, #1e293b 40%, #334155 80%, #475569 100%)",
+    night: "linear-gradient(to bottom, #020617 0%, #0f172a 40%, #1e1b4b 80%, #312e81 100%)",
+    sunset: "linear-gradient(to bottom, #7c3aed 0%, #db2777 25%, #f97316 55%, #fbbf24 80%, #fef3c7 100%)",
+  };
+
+  // Building/skyline colors by mode
+  const buildingColor = mode === "day" ? "#1e293b" : mode === "sunset" ? "#18082a" : "#0a0a1a";
+  const buildingStroke = mode === "day" ? "#334155" : mode === "sunset" ? "#4c1d95" : "#1e1b4b";
+
   return (
-    <div className="flex h-full min-h-0 flex-col gap-2">
+    <div className="flex h-full min-h-0 flex-col gap-0">
       {/* Controls Header */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-lab-ink bg-card p-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-lab-ink bg-card px-2 py-1.5">
         <div className="flex items-center gap-1.5">
           <span className="mono-label text-[10px] opacity-70">WEATHER:</span>
           {[
@@ -515,126 +687,530 @@ function WindowPanel() {
             <button
               key={m.key}
               type="button"
-              onClick={() => {
-                setMode(m.key as any);
-                sound.play("click");
-                store.reduceBoredom(3);
-              }}
-              className={`brut-sm mono-label px-2 py-0.5 text-[10px] transition-transform ${mode === m.key ? `${m.bg} font-bold scale-105 shadow-md` : "bg-card text-foreground opacity-80"
-                }`}
+              onClick={() => { setMode(m.key as any); sound.play("click"); store.reduceBoredom(3); }}
+              className={`brut-sm mono-label px-2 py-0.5 text-[10px] transition-all duration-200 ${mode === m.key ? `${m.bg} font-bold scale-105 shadow-md` : "bg-card text-foreground opacity-70 hover:opacity-100"}`}
             >
               {m.label}
             </button>
           ))}
         </div>
-
-        {/* Lo-Fi Radio */}
         <div className="flex items-center gap-1.5">
           <button
             type="button"
-            onClick={() => {
-              setRadioActive((r) => !r);
-              sound.play(radioActive ? "close" : "open");
-              store.interacted();
-            }}
-            className={`brut-sm mono-label px-2 py-0.5 text-[10px] ${radioActive ? "bg-lab-green text-lab-ink font-bold animate-pulse" : "bg-card"
-              }`}
+            onClick={() => { setRadioActive((r) => !r); sound.play(radioActive ? "close" : "open"); store.interacted(); }}
+            className={`brut-sm mono-label px-2 py-0.5 text-[10px] ${radioActive ? "bg-lab-green text-lab-ink font-bold animate-pulse" : "bg-card"}`}
           >
-            📻 LO-FI RADIO: {radioActive ? "ON (REDUCING BOREDOM)" : "OFF"}
+            📻 LO-FI RADIO: {radioActive ? "ON" : "OFF"}
           </button>
-
+          <button
+            type="button"
+            onClick={() => setWipeMode((w) => !w)}
+            className={`brut-sm mono-label px-2 py-0.5 text-[10px] transition-all ${wipeMode ? "bg-sky-300 text-black font-bold scale-105" : "bg-card opacity-70"}`}
+            title="Wipe condensation from glass"
+          >
+            💧 WIPE
+          </button>
           <Tag tone="yellow">OBSERVED: {seconds}s</Tag>
         </div>
       </div>
 
-      {/* Outdoor View Display */}
+      {/* ═══════════════════════ WINDOW VIEW ═══════════════════════ */}
       <div
-        className={`relative min-h-0 flex-1 overflow-hidden border-3 border-lab-ink transition-colors duration-500 ${mode === "day"
-            ? "bg-gradient-to-b from-sky-400 via-sky-200 to-amber-100"
-            : mode === "rain"
-              ? "bg-gradient-to-b from-slate-900 via-slate-800 to-slate-700"
-              : mode === "night"
-                ? "bg-gradient-to-b from-slate-950 via-indigo-950 to-slate-900"
-                : "bg-gradient-to-b from-rose-500 via-amber-400 to-amber-200"
-          }`}
+        ref={containerRef}
+        className="relative min-h-0 flex-1 overflow-hidden select-none"
+        style={{ cursor: wipeMode ? "crosshair" : "default" }}
+        onClick={handleWindowClick}
       >
-        {/* Rain animation overlay */}
-        {mode === "rain" && (
-          <div className="pointer-events-none absolute inset-0 opacity-40 bg-[linear-gradient(to_bottom,rgba(255,255,255,0)_0%,rgba(255,255,255,0.6)_100%)] bg-[length:3px_40px] animate-pulse" />
-        )}
+        {/* ── Sky background ── */}
+        <div
+          className="absolute inset-0 transition-all duration-1000"
+          style={{ background: skyGradients[mode] }}
+        />
 
-        {/* Sun / Moon */}
-        {mode === "day" && (
-          <div className="absolute top-6 right-12 h-14 w-14 rounded-full bg-yellow-300 border-3 border-lab-ink shadow-[0_0_20px_rgba(253,224,71,0.8)]" />
-        )}
+        {/* ── Stars (night only) ── */}
         {mode === "night" && (
-          <div className="absolute top-6 right-12 h-12 w-12 rounded-full bg-slate-100 border-3 border-lab-ink shadow-[0_0_25px_rgba(241,245,249,0.9)]">
-            <div className="absolute top-2 left-2 h-3 w-3 rounded-full bg-slate-300 opacity-60" />
+          <div className="pointer-events-none absolute inset-0">
+            {stars.map((s, i) => (
+              <div
+                key={i}
+                className="absolute rounded-full bg-white"
+                style={{
+                  left: `${s.x}%`,
+                  top: `${s.y}%`,
+                  width: s.size,
+                  height: s.size,
+                  opacity: 0.4 + 0.6 * Math.abs(Math.sin(s.twinkle)),
+                  boxShadow: `0 0 ${s.size * 2}px rgba(255,255,255,${0.3 + 0.3 * Math.abs(Math.sin(s.twinkle))})`,
+                }}
+              />
+            ))}
           </div>
         )}
-        {mode === "sunset" && (
-          <div className="absolute bottom-16 right-1/3 h-20 w-20 rounded-full bg-rose-400 border-3 border-lab-ink opacity-90 shadow-lg" />
+
+        {/* ── Sun (day) with animated rays ── */}
+        {mode === "day" && (
+          <div
+            className="pointer-events-none absolute"
+            style={{ left: `${Math.min(85, Math.max(5, sunPos))}%`, top: "8%", transform: "translate(-50%, -50%)" }}
+          >
+            {/* Rotating SVG ray ring — sits behind the sun disc */}
+            <svg
+              width={130}
+              height={130}
+              viewBox="-65 -65 130 130"
+              className="absolute"
+              style={{
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%)",
+                animation: "sunSpin 10s linear infinite",
+              }}
+            >
+              {Array.from({ length: 12 }, (_, i) => {
+                const angle = (i / 12) * Math.PI * 2;
+                const inner = 32;
+                const outer = inner + (i % 3 === 0 ? 24 : i % 3 === 1 ? 16 : 20);
+                return (
+                  <line
+                    key={i}
+                    x1={Math.cos(angle) * inner}
+                    y1={Math.sin(angle) * inner}
+                    x2={Math.cos(angle) * outer}
+                    y2={Math.sin(angle) * outer}
+                    stroke="rgba(253,224,71,0.85)"
+                    strokeWidth={i % 3 === 0 ? 3.5 : 2}
+                    strokeLinecap="round"
+                  />
+                );
+              })}
+            </svg>
+            {/* Sun glow ring */}
+            <div
+              className="absolute rounded-full"
+              style={{
+                width: 76,
+                height: 76,
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%)",
+                background: "rgba(253,224,71,0.25)",
+                filter: "blur(6px)",
+              }}
+            />
+            {/* Sun disc */}
+            <div
+              className="absolute rounded-full bg-yellow-300"
+              style={{
+                width: 52,
+                height: 52,
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%)",
+                boxShadow: "0 0 0 3px rgba(253,224,71,0.5), 0 0 30px rgba(253,224,71,0.7)",
+                border: "3px solid #1a1a1a",
+              }}
+            />
+          </div>
         )}
 
-        {/* Campus Skyline */}
+        {/* ── Moon (night) ── */}
+        {mode === "night" && (
+          <div className="pointer-events-none absolute top-6 right-14">
+            <div
+              className="rounded-full bg-slate-100"
+              style={{
+                width: 50,
+                height: 50,
+                border: "3px solid #334155",
+                boxShadow: "0 0 0 8px rgba(241,245,249,0.08), 0 0 30px rgba(241,245,249,0.4)",
+              }}
+            >
+              <div className="absolute top-2 left-2 h-3 w-3 rounded-full bg-slate-300 opacity-50" />
+              <div className="absolute bottom-3 right-3 h-2 w-2 rounded-full bg-slate-300 opacity-40" />
+            </div>
+          </div>
+        )}
+
+        {/* ── Sunset sun (large, glowing) ── */}
+        {mode === "sunset" && (
+          <div
+            className="pointer-events-none absolute"
+            style={{
+              bottom: "22%",
+              left: "55%",
+              transform: "translateX(-50%)",
+              width: 80,
+              height: 80,
+              borderRadius: "50%",
+              background: "radial-gradient(circle, #fbbf24 0%, #f97316 50%, #dc2626 100%)",
+              boxShadow: "0 0 0 20px rgba(251,191,36,0.15), 0 0 80px rgba(249,115,22,0.5)",
+              border: "3px solid #7c2d12",
+            }}
+          />
+        )}
+
+        {/* ── Parallax clouds ── */}
+        {(mode === "day" || mode === "sunset") && (
+          <div className="pointer-events-none absolute inset-0 overflow-hidden">
+            {[
+              { baseX: 10, y: 12, w: 120, h: 40, speed: 1, opacity: mode === "sunset" ? 0.6 : 0.9 },
+              { baseX: 35, y: 22, w: 90, h: 30, speed: 0.6, opacity: mode === "sunset" ? 0.5 : 0.75 },
+              { baseX: 65, y: 8, w: 150, h: 50, speed: 0.8, opacity: mode === "sunset" ? 0.4 : 0.85 },
+              { baseX: 80, y: 30, w: 70, h: 25, speed: 1.2, opacity: mode === "sunset" ? 0.5 : 0.7 },
+            ].map((c, i) => {
+              const ox = ((cloudOffset * c.speed) % 200);
+              const cx = (c.baseX + ox) % 120 - 10;
+              const cloudColor = mode === "sunset"
+                ? `rgba(251,146,60,${c.opacity})`
+                : `rgba(255,255,255,${c.opacity})`;
+              return (
+                <div
+                  key={i}
+                  className="absolute rounded-full"
+                  style={{
+                    left: `${cx}%`,
+                    top: `${c.y}%`,
+                    width: c.w,
+                    height: c.h,
+                    background: cloudColor,
+                    filter: "blur(8px)",
+                    transform: "translateY(-30%)",
+                  }}
+                />
+              );
+            })}
+          </div>
+        )}
+
+        {/* Storm clouds */}
+        {mode === "rain" && (
+          <div className="pointer-events-none absolute inset-0 overflow-hidden">
+            {[
+              { baseX: -5, y: 0, w: 250, h: 80 },
+              { baseX: 30, y: 5, w: 200, h: 70 },
+              { baseX: 60, y: -5, w: 300, h: 90 },
+            ].map((c, i) => {
+              const ox = (cloudOffset * 0.4) % 80;
+              return (
+                <div
+                  key={i}
+                  className="absolute rounded-full"
+                  style={{
+                    left: `${c.baseX + ox * 0.3}%`,
+                    top: `${c.y}%`,
+                    width: c.w,
+                    height: c.h,
+                    background: "rgba(30,41,59,0.95)",
+                    filter: "blur(20px)",
+                  }}
+                />
+              );
+            })}
+          </div>
+        )}
+
+        {/* ── Canvas rain streaks ── */}
+        <canvas
+          ref={canvasRef}
+          className="pointer-events-none absolute inset-0 w-full h-full"
+          style={{ opacity: mode === "rain" ? 1 : 0, transition: "opacity 0.5s" }}
+          width={800}
+          height={500}
+        />
+
+        {/* ── Lightning flash ── */}
+        {mode === "rain" && lightning && (
+          <>
+            <div className="pointer-events-none absolute inset-0 bg-white/20" style={{ animation: "none" }} />
+            <svg className="pointer-events-none absolute inset-0 w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+              <path
+                d={lightningPath}
+                stroke="#fef08a"
+                strokeWidth="0.6"
+                fill="none"
+                filter="url(#glow)"
+                opacity={0.95}
+              />
+              <defs>
+                <filter id="glow">
+                  <feGaussianBlur stdDeviation="0.8" result="coloredBlur" />
+                  <feMerge><feMergeNode in="coloredBlur" /><feMergeNode in="SourceGraphic" /></feMerge>
+                </filter>
+              </defs>
+            </svg>
+          </>
+        )}
+
+        {/* ── Layered skyline (3 depth layers) ── */}
         <svg
           viewBox="0 0 1000 300"
-          className="pointer-events-none absolute bottom-0 w-full h-40"
+          className="pointer-events-none absolute bottom-0 w-full"
+          style={{ height: "42%", zIndex: 2 }}
           preserveAspectRatio="none"
         >
-          <path d="M0 180 L120 90 L240 180 L400 70 L580 190 L750 100 L1000 200 V300 H0 Z" fill="#1e293b" opacity="0.8" />
-          <path d="M0 220 L180 140 L350 220 L600 130 L800 210 L1000 160 V300 H0 Z" fill="#0f172a" />
-          <rect x="150" y="160" width="70" height="140" fill="#0f172a" stroke="#334155" strokeWidth="2" />
-          <rect x="520" y="140" width="90" height="160" fill="#0f172a" stroke="#334155" strokeWidth="2" />
-          <rect x="780" y="170" width="60" height="130" fill="#0f172a" stroke="#334155" strokeWidth="2" />
+          {/* Far hills */}
+          <path d="M0 200 Q100 140 200 185 Q320 130 450 175 Q560 120 700 180 Q820 140 1000 190 V300 H0 Z"
+            fill={buildingColor} opacity="0.45" />
+          {/* Mid buildings */}
+          <path d="M0 210 L80 150 L160 210 L230 160 L310 210 L430 130 L540 200 L660 150 L780 210 L900 155 L1000 200 V300 H0 Z"
+            fill={buildingColor} opacity="0.72" />
+          {/* Close buildings + windows */}
+          <path d="M0 230 L100 180 L200 235 L280 170 L370 230 L480 190 L600 240 L720 175 L840 235 L950 185 L1000 225 V300 H0 Z"
+            fill={buildingColor} opacity="1" />
+          {/* Building rectangles */}
+          <rect x="120" y="175" width="60" height="125" fill={buildingColor} stroke={buildingStroke} strokeWidth="1.5" />
+          <rect x="290" y="155" width="80" height="145" fill={buildingColor} stroke={buildingStroke} strokeWidth="1.5" />
+          <rect x="490" y="165" width="90" height="135" fill={buildingColor} stroke={buildingStroke} strokeWidth="1.5" />
+          <rect x="720" y="160" width="70" height="140" fill={buildingColor} stroke={buildingStroke} strokeWidth="1.5" />
+          <rect x="860" y="175" width="55" height="125" fill={buildingColor} stroke={buildingStroke} strokeWidth="1.5" />
+          {/* Building windows */}
+          {[
+            { bx: 120, by: 175, bw: 60 }, { bx: 290, by: 155, bw: 80 },
+            { bx: 490, by: 165, bw: 90 }, { bx: 720, by: 160, bw: 70 },
+          ].map((b, bi) =>
+            Array.from({ length: 3 }, (_, row) =>
+              Array.from({ length: 3 }, (_, col) => {
+                const lit = mode === "night" ? Math.random() > 0.4 : mode === "sunset" ? Math.random() > 0.7 : false;
+                return (
+                  <rect
+                    key={`${bi}-${row}-${col}`}
+                    x={b.bx + 8 + col * 16}
+                    y={b.by + 12 + row * 22}
+                    width={10}
+                    height={14}
+                    fill={lit ? (mode === "night" ? "#fef08a" : "#fed7aa") : "rgba(255,255,255,0.06)"}
+                    rx={1}
+                  />
+                );
+              })
+            )
+          )}
+          {/* Antenna */}
+          <line x1="150" y1="175" x2="150" y2="148" stroke={buildingStroke} strokeWidth="2" />
+          <circle cx="150" cy="146" r="3" fill={mode === "night" ? "#f87171" : buildingStroke} />
         </svg>
 
-        {/* Window Frame Grid Overlay */}
-        <div className="pointer-events-none absolute inset-0 border-[12px] border-lab-ink">
-          <div className="absolute top-0 bottom-0 left-1/2 w-3 -translate-x-1/2 bg-lab-ink" />
-          <div className="absolute left-0 right-0 top-1/2 h-3 -translate-y-1/2 bg-lab-ink" />
+        {/* ── Ground/road strip ── */}
+        <div
+          className="pointer-events-none absolute bottom-0 left-0 right-0"
+          style={{ height: "8%", zIndex: 3, background: mode === "night" ? "#0a0a1a" : mode === "rain" ? "#1e293b" : "#1e293b" }}
+        >
+          {/* Road dashes */}
+          <div className="absolute inset-x-0 top-1/2 flex gap-4 px-4 -translate-y-1/2">
+            {Array.from({ length: 12 }, (_, i) => (
+              <div key={i} className="h-0.5 flex-1 bg-yellow-400/40" style={{ animationDelay: `${i * 0.1}s` }} />
+            ))}
+          </div>
         </div>
 
-        {/* Flying Targets (Birds, Drones, UFOs) */}
-        {birds.map((b) => (
-          <button
-            key={b.id}
-            type="button"
-            onClick={() => catchTarget(b.id, b.type)}
-            style={{ left: `${b.x}%`, top: `${b.y}%` }}
-            className="absolute z-20 -translate-x-1/2 -translate-y-1/2 transition-transform hover:scale-125 active:scale-95"
-          >
-            {b.type === "ufo" ? (
-              <span className="brut-sm text-lg bg-emerald-400 text-black px-2 py-0.5 font-bold shadow-lg">
-                🛸 UFO!
-              </span>
-            ) : b.type === "drone" ? (
-              <span className="brut-sm text-xs bg-sky-300 text-black px-1.5 py-0.5 font-bold">
-                🛸 DRONE
-              </span>
-            ) : (
-              <span className="text-2xl drop-shadow-md">🕊️</span>
-            )}
-          </button>
-        ))}
+        {/* ── Condensation on glass ── */}
+        <div className="pointer-events-none absolute inset-0" style={{ zIndex: 8 }}>
+          {condensationDrops.map((d) => {
+            const isWiped = wipedZones.some(
+              (z) => Math.hypot(z.x - d.x, z.y - d.y) < z.r
+            );
+            if (isWiped) return null;
+            return (
+              <div
+                key={d.id}
+                className="absolute rounded-full"
+                style={{
+                  left: `${d.x}%`,
+                  top: `${d.y}%`,
+                  width: d.size,
+                  height: d.size * 1.6,
+                  background: "rgba(200,220,255,0.25)",
+                  backdropFilter: "blur(1px)",
+                  opacity: d.opacity,
+                  border: "0.5px solid rgba(200,220,255,0.3)",
+                  transform: "translate(-50%,-50%)",
+                  borderRadius: "40% 40% 60% 60%",
+                }}
+              />
+            );
+          })}
+          {/* Wipe streak marks */}
+          {wipedZones.map((z) => (
+            <div
+              key={z.id}
+              className="absolute"
+              style={{
+                left: `${z.x}%`,
+                top: `${z.y}%`,
+                width: z.r * 2.5 + "%",
+                height: z.r * 1.8 + "%",
+                transform: "translate(-50%, -50%)",
+                background: "radial-gradient(ellipse, rgba(200,230,255,0.15) 0%, transparent 70%)",
+                borderRadius: "50%",
+                pointerEvents: "none",
+              }}
+            />
+          ))}
+        </div>
 
-        {/* Flying Paper Planes */}
+        {/* ── Birds / UFOs / Drones ── */}
+        {birds.map((b) => {
+          const yOff = Math.sin(b.wobble) * (b.type === "bird" ? 2.5 : 1);
+          return (
+            <button
+              key={b.id}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                const rect = containerRef.current!.getBoundingClientRect();
+                const px = ((e.clientX - rect.left) / rect.width) * 100;
+                const py = ((e.clientY - rect.top) / rect.height) * 100;
+                catchTarget(b.id, b.type, px, py);
+              }}
+              style={{ left: `${b.x}%`, top: `calc(${b.y}% + ${yOff}px)`, zIndex: 20 }}
+              className="absolute -translate-x-1/2 -translate-y-1/2 transition-transform hover:scale-125 active:scale-75"
+            >
+              {b.type === "ufo" ? (
+                <span
+                  className="brut-sm text-sm bg-emerald-400 text-black px-2 py-0.5 font-bold shadow-lg"
+                  style={{ boxShadow: "0 0 12px rgba(52,211,153,0.6), 2px 2px 0 #1a1a1a" }}
+                >
+                  🛸 UFO!
+                </span>
+              ) : b.type === "drone" ? (
+                <span className="brut-sm text-xs bg-sky-300 text-black px-1.5 py-0.5 font-bold"
+                  style={{ boxShadow: "0 0 8px rgba(56,189,248,0.5), 2px 2px 0 #1a1a1a" }}>
+                  🚁 DRONE
+                </span>
+              ) : (
+                <span className="text-xl drop-shadow-md" style={{ filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.5))" }}>
+                  {b.wobble % (Math.PI * 2) < Math.PI ? "🐦" : "🕊️"}
+                </span>
+              )}
+            </button>
+          );
+        })}
+
+        {/* ── Paper planes — CSS compositor animation (dual-div parabola trick) ── */}
         {planes.map((p) => (
           <div
             key={p.id}
-            style={{ left: `${p.x}%`, top: `${p.y}%` }}
-            className="pointer-events-none absolute z-20 flex items-center gap-1.5 -translate-x-1/2 -translate-y-1/2"
+            className="pointer-events-none absolute"
+            style={{
+              // Outer div: horizontal X sweep across the window
+              left: 0,
+              top: `${p.startY}%`,
+              width: "100%",
+              zIndex: 22,
+              animation: `planeX ${p.duration}s cubic-bezier(0.2, 0, 0.8, 1) forwards`,
+            }}
           >
-            <span className="text-2xl">✈️</span>
-            <span className="mono-label text-[10px] bg-lab-yellow text-lab-ink px-1.5 py-0.5 border border-lab-ink font-bold shadow-md">
-              {p.text}
-            </span>
+            {/* Inner div: vertical arc (up then down = parabola) */}
+            <div
+              style={{
+                display: "inline-block",
+                animation: `planeArc ${p.duration}s ease-in forwards`,
+                position: "relative",
+              }}
+            >
+              {/* Smoke trail dots behind the plane */}
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div
+                  key={i}
+                  className="absolute rounded-full"
+                  style={{
+                    width: Math.max(2, 6 - i),
+                    height: Math.max(2, 6 - i),
+                    background: "rgba(255,255,255,0.75)",
+                    opacity: 0.8 - i * 0.14,
+                    top: "50%",
+                    right: `${i * 9}px`,
+                    transform: "translateY(-50%)",
+                    filter: "blur(1px)",
+                    animation: `planeTrailFade ${p.duration}s ease-in forwards`,
+                  }}
+                />
+              ))}
+              {/* The plane emoji — rotates to follow the arc direction */}
+              <span
+                style={{
+                  fontSize: 24,
+                  display: "block",
+                  filter: "drop-shadow(1px 2px 5px rgba(0,0,0,0.5))",
+                  animation: `planeTilt ${p.duration}s ease-in forwards`,
+                  transformOrigin: "center center",
+                  lineHeight: 1,
+                }}
+              >
+                ✈️
+              </span>
+              {/* Distance label — fades in then fades out */}
+              <span
+                className="mono-label text-[9px] bg-lab-yellow text-lab-ink px-1 py-0.5 border border-lab-ink font-bold shadow whitespace-nowrap"
+                style={{
+                  position: "absolute",
+                  top: 28,
+                  left: 0,
+                  animation: `planeLabelFade ${p.duration}s ease-in forwards`,
+                }}
+              >
+                {p.text}
+              </span>
+            </div>
           </div>
         ))}
+
+        {/* ── Click burst particles ── */}
+        <div className="pointer-events-none absolute inset-0" style={{ zIndex: 30 }}>
+          {burstParticles.map((p) => (
+            <div
+              key={p.id}
+              className="absolute rounded-full"
+              style={{
+                left: `${p.x}%`,
+                top: `${p.y}%`,
+                width: p.size,
+                height: p.size,
+                background: p.color,
+                opacity: p.life / 55,
+                transform: "translate(-50%,-50%)",
+                boxShadow: `0 0 ${p.size}px ${p.color}`,
+              }}
+            />
+          ))}
+        </div>
+
+        {/* ── Window frame (4-pane, thick brutalist) ── */}
+        <div className="pointer-events-none absolute inset-0" style={{ zIndex: 25 }}>
+          {/* Outer frame */}
+          <div className="absolute inset-0 border-[14px] border-lab-ink" />
+          {/* Vertical muntin */}
+          <div className="absolute top-0 bottom-0 left-1/2 bg-lab-ink" style={{ width: 14, transform: "translateX(-50%)" }} />
+          {/* Horizontal muntin */}
+          <div className="absolute left-0 right-0 top-1/2 bg-lab-ink" style={{ height: 14, transform: "translateY(-50%)" }} />
+          {/* Glass sheen on each pane */}
+          {[[0, 0], [1, 0], [0, 1], [1, 1]].map(([col, row]) => (
+            <div
+              key={`${col}-${row}`}
+              className="absolute pointer-events-none"
+              style={{
+                left: col === 0 ? 14 : "calc(50% + 7px)",
+                top: row === 0 ? 14 : "calc(50% + 7px)",
+                right: col === 1 ? 14 : "calc(50% + 7px)",
+                bottom: row === 1 ? 14 : "calc(50% + 7px)",
+                background: "linear-gradient(135deg, rgba(255,255,255,0.07) 0%, transparent 50%, rgba(255,255,255,0.03) 100%)",
+              }}
+            />
+          ))}
+        </div>
+
+        {/* ── Scanline texture overlay ── */}
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            zIndex: 26,
+            backgroundImage: "repeating-linear-gradient(0deg, transparent 0px, transparent 3px, rgba(0,0,0,0.04) 3px, rgba(0,0,0,0.04) 4px)",
+          }}
+        />
       </div>
 
-      {/* Dashboard Footer */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t-2 border-lab-ink bg-card p-2">
+      {/* ═══════════════ FOOTER ═══════════════ */}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t-2 border-lab-ink bg-card px-2 py-1.5">
         <div className="flex items-center gap-2">
           <BrutButton variant="warn" className="text-xs" onClick={throwPaperPlane}>
             ✈️ THROW PAPER PLANE ({planeCount})
@@ -643,11 +1219,50 @@ function WindowPanel() {
             SPOTTED: {score} TARGETS
           </span>
         </div>
-
         <p className="mono-label text-[10px] text-center opacity-70">
-          Click flying birds & UFOs outside the window to score XP and obliterate boredom!
+          {wipeMode ? "💧 WIPE MODE — click the glass to clear condensation!" : "Click flying birds & UFOs · 💧 WIPE to clear foggy glass"}
         </p>
       </div>
+
+      <style>{`
+        @keyframes sunSpin {
+          from { transform: translate(-50%, -50%) rotate(0deg); }
+          to   { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+        /* Paper plane: horizontal sweep — starts off-screen left, exits off-screen right */
+        @keyframes planeX {
+          0%   { transform: translateX(-8%); }
+          100% { transform: translateX(108%); }
+        }
+        /* Paper plane: vertical arc — shoots up, then gravity pulls it down */
+        @keyframes planeArc {
+          0%   { transform: translateY(0px); }
+          28%  { transform: translateY(-110px); }
+          60%  { transform: translateY(-60px); }
+          100% { transform: translateY(90px); }
+        }
+        /* Plane tilt: points up on launch, levels, then nose-down on descent */
+        @keyframes planeTilt {
+          0%   { transform: rotate(-30deg); }
+          28%  { transform: rotate(-8deg); }
+          60%  { transform: rotate(5deg); }
+          100% { transform: rotate(25deg); }
+        }
+        /* Trail dots: fade in then fade out with the plane */
+        @keyframes planeTrailFade {
+          0%   { opacity: 0; }
+          10%  { opacity: 0.8; }
+          80%  { opacity: 0.5; }
+          100% { opacity: 0; }
+        }
+        /* Label: pops in quickly, then fades out near end */
+        @keyframes planeLabelFade {
+          0%   { opacity: 0; transform: translateY(4px); }
+          8%   { opacity: 1; transform: translateY(0); }
+          75%  { opacity: 1; }
+          100% { opacity: 0; }
+        }
+      `}</style>
     </div>
   );
 }
@@ -837,8 +1452,8 @@ function DrawerPanel() {
                 store.interacted();
               }}
               className={`brut-sm mono-label px-2.5 py-1 text-xs font-bold transition-transform ${activeTier === t.id
-                  ? "bg-lab-ink text-lab-paper scale-105 shadow-md"
-                  : "bg-lab-yellow text-lab-ink hover:bg-yellow-300"
+                ? "bg-lab-ink text-lab-paper scale-105 shadow-md"
+                : "bg-lab-yellow text-lab-ink hover:bg-yellow-300"
                 }`}
             >
               {t.icon} {t.label}
@@ -878,8 +1493,8 @@ function DrawerPanel() {
                       sound.play("click");
                     }}
                     className={`group relative flex flex-col items-center justify-center rounded border-2 p-3 text-center transition-all ${isSelected
-                        ? "border-lab-yellow bg-amber-800 scale-105 ring-2 ring-lab-yellow"
-                        : "border-amber-800 bg-amber-900/90 hover:border-amber-500 hover:bg-amber-800/80"
+                      ? "border-lab-yellow bg-amber-800 scale-105 ring-2 ring-lab-yellow"
+                      : "border-amber-800 bg-amber-900/90 hover:border-amber-500 hover:bg-amber-800/80"
                       }`}
                   >
                     <span className="text-3xl transition-transform group-hover:scale-110">{item.icon}</span>
@@ -1596,12 +2211,12 @@ function TrashPanel() {
 
 
 const NOTE_COLORS = [
-  { label: "Yellow",  bg: "#ffb703", text: "#1e293b", accent: "#dc2626" },
-  { label: "Pink",    bg: "#fda4af", text: "#1e293b", accent: "#9f1239" },
-  { label: "Blue",    bg: "#93c5fd", text: "#1e2b4a", accent: "#1d4ed8" },
-  { label: "Green",   bg: "#86efac", text: "#14532d", accent: "#15803d" },
-  { label: "Purple",  bg: "#d8b4fe", text: "#3b0764", accent: "#7c3aed" },
-  { label: "White",   bg: "#f8fafc", text: "#1e293b", accent: "#64748b" },
+  { label: "Yellow", bg: "#ffb703", text: "#1e293b", accent: "#dc2626" },
+  { label: "Pink", bg: "#fda4af", text: "#1e293b", accent: "#9f1239" },
+  { label: "Blue", bg: "#93c5fd", text: "#1e2b4a", accent: "#1d4ed8" },
+  { label: "Green", bg: "#86efac", text: "#14532d", accent: "#15803d" },
+  { label: "Purple", bg: "#d8b4fe", text: "#3b0764", accent: "#7c3aed" },
+  { label: "White", bg: "#f8fafc", text: "#1e293b", accent: "#64748b" },
 ];
 
 const NOTE_EMOJIS = ["📌", "⚠️", "💡", "🔥", "✅", "❌", "📋", "🎯", "🧠", "💀"];
@@ -1723,7 +2338,7 @@ function StickyNotePanel() {
 
       {/* Editor & Preview row */}
       <div className="flex min-h-0 flex-1 flex-col gap-4 border-t-2 border-lab-ink/30 pt-3 md:flex-row">
-        
+
         {/* Editor form */}
         <div className="flex min-h-0 flex-1 flex-col gap-2.5">
           <p className="mono-label text-[10px] tracking-widest opacity-60">CREATE / PIN NOTE</p>
@@ -1737,11 +2352,10 @@ function StickyNotePanel() {
                 type="button"
                 title={c.label}
                 onClick={() => { setColorIdx(i); sound.play("click"); }}
-                className={`h-7 w-7 rounded-sm border-2 transition-all duration-100 hover:scale-110 ${
-                  colorIdx === i
+                className={`h-7 w-7 rounded-sm border-2 transition-all duration-100 hover:scale-110 ${colorIdx === i
                     ? "border-lab-ink scale-125 shadow-md ring-2 ring-lab-ink/30"
                     : "border-gray-400 opacity-80"
-                }`}
+                  }`}
                 style={{ background: c.bg }}
               />
             ))}
@@ -2088,28 +2702,26 @@ function CpuPanel() {
       {/* VIEW 1: ADVANCED RIG SCHEMATIC & INTERACTIVE MOTHERBOARD */}
       {viewMode === "internals" && (
         <div className="flex min-h-0 flex-1 flex-col gap-3 lg:flex-row">
-          
+
           {/* Main Visualizer Canvas Area */}
           <div className="relative flex flex-1 flex-col items-center justify-center overflow-hidden border-3 border-lab-ink bg-[#070d18] p-4 shadow-md min-h-[400px]">
-            
+
             {/* Top Toolbar overlay on rig */}
             <div className="absolute top-2 left-3 right-3 z-10 flex items-center justify-between pointer-events-auto">
               <div className="flex items-center gap-1.5">
                 <button
                   type="button"
                   onClick={() => { setThermalVision((v) => !v); sound.play("click"); }}
-                  className={`brut-sm text-[10px] font-mono font-bold px-2 py-1 transition-all ${
-                    thermalVision ? "bg-lab-red text-white scale-105 shadow-md" : "bg-card text-foreground opacity-80"
-                  }`}
+                  className={`brut-sm text-[10px] font-mono font-bold px-2 py-1 transition-all ${thermalVision ? "bg-lab-red text-white scale-105 shadow-md" : "bg-card text-foreground opacity-80"
+                    }`}
                 >
                   🔥 {thermalVision ? "FLIR THERMAL: ON" : "FLIR HEATMAP: OFF"}
                 </button>
                 <button
                   type="button"
                   onClick={toggleLn2}
-                  className={`brut-sm text-[10px] font-mono font-bold px-2 py-1 transition-all ${
-                    ln2Mode ? "bg-cyan-300 text-slate-900 scale-105 shadow-md ring-2 ring-white" : "bg-card text-foreground opacity-80"
-                  }`}
+                  className={`brut-sm text-[10px] font-mono font-bold px-2 py-1 transition-all ${ln2Mode ? "bg-cyan-300 text-slate-900 scale-105 shadow-md ring-2 ring-white" : "bg-card text-foreground opacity-80"
+                    }`}
                 >
                   ❄️ {ln2Mode ? "LN2 POUR: ACTIVE (-196°C)" : "LN2 NITROGEN DEWAR"}
                 </button>
@@ -2127,8 +2739,8 @@ function CpuPanel() {
                 background: thermalVision
                   ? "radial-gradient(circle at 50% 50%, #ef4444 0%, #3b82f6 60%, #000 100%)"
                   : ln2Mode
-                  ? "radial-gradient(circle at 50% 50%, #38bdf8 0%, #0284c7 40%, transparent 75%)"
-                  : `radial-gradient(circle at 50% 50%, ${coolant.fluid} 0%, transparent 70%)`,
+                    ? "radial-gradient(circle at 50% 50%, #38bdf8 0%, #0284c7 40%, transparent 75%)"
+                    : `radial-gradient(circle at 50% 50%, ${coolant.fluid} 0%, transparent 70%)`,
               }}
             />
 
@@ -2145,10 +2757,10 @@ function CpuPanel() {
             {/* Motherboard & Detailed Hardware Vector Graphic */}
             <div className={`relative transition-transform duration-200 ${shakeRig ? "scale-95 rotate-1" : "scale-100"}`}>
               <svg width="460" height="350" viewBox="0 0 460 350" className="drop-shadow-2xl">
-                
+
                 {/* 1. Motherboard Black PCB Plate with High-Tech Grid */}
                 <rect x="15" y="15" width="430" height="320" rx="8" fill="#0b1322" stroke={thermalVision ? "#3b82f6" : "#1e293b"} strokeWidth="4" />
-                
+
                 {/* PCB Trace Circuit Lines */}
                 <path d="M35 35 H180 V110 H240 M300 35 V170 H400 M45 280 H210 V210 H340 M380 230 V290" stroke={thermalVision ? "#60a5fa" : "#f59e0b"} strokeWidth="1.5" opacity={thermalVision ? "0.6" : "0.35"} fill="none" />
                 <path d="M70 170 V80 H140 M240 170 H320 V120" stroke="#38bdf8" strokeWidth="1.2" opacity="0.4" strokeDasharray="4 4" fill="none" />
@@ -2178,7 +2790,7 @@ function CpuPanel() {
                   {/* Waterblock Circular Pump Bezel */}
                   <circle cx="135" cy="120" r="44" fill="#030712" stroke={coolant.fluid} strokeWidth="4.5" />
                   <circle cx="135" cy="120" r="44" fill="none" stroke={coolant.glow} strokeWidth="10" opacity="0.5" />
-                  
+
                   {/* Pump Display Screens */}
                   {pumpScreenMode === 0 && (
                     <g>
@@ -2278,7 +2890,7 @@ function CpuPanel() {
                   />
                   {/* Heatsink Fins Line */}
                   <line x1="50" y1="245" x2="395" y2="245" stroke="#334155" strokeWidth="1.5" strokeDasharray="3 3" />
-                  
+
                   {/* 3 Massive Spinning RGB Fans */}
                   {[105, 222, 340].map((fx, fi) => (
                     <g key={fi}>
@@ -2367,7 +2979,7 @@ function CpuPanel() {
 
           {/* Right Hardware Control & Inspector Sidebar */}
           <div className="flex flex-col gap-2.5 md:w-80">
-            
+
             {/* Component Inspector Card */}
             <div className="border-2 border-lab-ink bg-card p-3 shadow-sm space-y-2">
               <div className="flex items-center justify-between border-b border-lab-ink/20 pb-1.5">
@@ -2472,9 +3084,8 @@ function CpuPanel() {
                     type="button"
                     title={th.name}
                     onClick={() => { setCoolantIdx(i); sound.play("click"); }}
-                    className={`flex items-center gap-1 px-2 py-1 text-[9.5px] font-mono rounded-sm border-2 font-bold transition-transform ${
-                      coolantIdx === i ? "border-lab-ink scale-105 shadow-sm" : "border-slate-300 opacity-70"
-                    }`}
+                    className={`flex items-center gap-1 px-2 py-1 text-[9.5px] font-mono rounded-sm border-2 font-bold transition-transform ${coolantIdx === i ? "border-lab-ink scale-105 shadow-sm" : "border-slate-300 opacity-70"
+                      }`}
                     style={{ background: th.fluid, color: i === 0 || i === 1 || i === 4 || i === 5 ? "#000" : "#fff" }}
                   >
                     {th.name}
@@ -2521,7 +3132,7 @@ function CpuPanel() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            
+
             {/* Multiplier Slider */}
             <div className="border-2 border-lab-ink/30 bg-background p-3 space-y-2">
               <div className="flex justify-between items-center">
@@ -2728,7 +3339,7 @@ function CpuPanel() {
           <div className="border-l-4 border-lab-yellow bg-card/60 p-3 text-xs font-mono space-y-1">
             <p className="font-bold text-lab-ink">📝 LAB INVENTORY LOG #8841:</p>
             <p className="opacity-80">
-              "This monster rig was procured via a ₹12,00,000 AI Research Grant marked as 'Bio-Chemical Simulation Engine'. 
+              "This monster rig was procured via a ₹12,00,000 AI Research Grant marked as 'Bio-Chemical Simulation Engine'.
               In reality, students use it to play Crysis, mine virtual coins, and compile 4 lines of C++ code in 0.0001 seconds."
             </p>
           </div>
@@ -2741,7 +3352,7 @@ function CpuPanel() {
           <p className="mono-label text-xs tracking-widest opacity-60">RETRO BEIGE SLEEPER CHASSIS</p>
 
           <div className="relative border-4 border-lab-ink bg-[#d4cca9] p-6 shadow-xl w-64 rounded-sm flex flex-col items-center gap-4">
-            
+
             {/* 5.25" Optical Drive with Animated Tray */}
             <div className="w-full border-2 border-lab-ink bg-[#b8ad86] p-2 flex items-center justify-between shadow-inner">
               <span className="font-mono text-[9px] font-bold">52X CD-RW DRIVE</span>
@@ -3110,26 +3721,26 @@ function WhiteboardPanel() {
   };
 
   const COLORS = [
-    { name: "Ink Black",    value: "#1e293b" },
-    { name: "Charcoal",     value: "#475569" },
-    { name: "White",        value: "#f8fafc" },
+    { name: "Ink Black", value: "#1e293b" },
+    { name: "Charcoal", value: "#475569" },
+    { name: "White", value: "#f8fafc" },
     { name: "Marker Blue", value: "#2563eb" },
-    { name: "Sky Blue",    value: "#38bdf8" },
-    { name: "Alert Red",   value: "#dc2626" },
-    { name: "Pink",        value: "#ec4899" },
-    { name: "Orange",      value: "#f97316" },
-    { name: "Amber",       value: "#f59e0b" },
-    { name: "Yellow",      value: "#eab308" },
-    { name: "Green",       value: "#16a34a" },
-    { name: "Lime",        value: "#84cc16" },
-    { name: "Teal",        value: "#14b8a6" },
-    { name: "Cyan",        value: "#06b6d4" },
-    { name: "Purple",      value: "#9333ea" },
-    { name: "Violet",      value: "#7c3aed" },
-    { name: "Indigo",      value: "#4f46e5" },
-    { name: "Brown",       value: "#92400e" },
-    { name: "Rose",        value: "#f43f5e" },
-    { name: "Magenta",     value: "#d946ef" },
+    { name: "Sky Blue", value: "#38bdf8" },
+    { name: "Alert Red", value: "#dc2626" },
+    { name: "Pink", value: "#ec4899" },
+    { name: "Orange", value: "#f97316" },
+    { name: "Amber", value: "#f59e0b" },
+    { name: "Yellow", value: "#eab308" },
+    { name: "Green", value: "#16a34a" },
+    { name: "Lime", value: "#84cc16" },
+    { name: "Teal", value: "#14b8a6" },
+    { name: "Cyan", value: "#06b6d4" },
+    { name: "Purple", value: "#9333ea" },
+    { name: "Violet", value: "#7c3aed" },
+    { name: "Indigo", value: "#4f46e5" },
+    { name: "Brown", value: "#92400e" },
+    { name: "Rose", value: "#f43f5e" },
+    { name: "Magenta", value: "#d946ef" },
   ];
 
   const TOOLS: { id: Tool; label: string; icon: string }[] = [
@@ -3206,9 +3817,8 @@ function WhiteboardPanel() {
                   boxShadow: !isEraser && color === c.value ? `0 0 0 1px #fff inset` : "none",
                   border: c.value === "#f8fafc" ? "1.5px solid #cbd5e1" : "none",
                 }}
-                className={`h-6 w-6 rounded-sm transition-all duration-100 hover:scale-110 ${
-                  !isEraser && color === c.value ? "scale-125 shadow-md" : "opacity-90 hover:opacity-100"
-                }`}
+                className={`h-6 w-6 rounded-sm transition-all duration-100 hover:scale-110 ${!isEraser && color === c.value ? "scale-125 shadow-md" : "opacity-90 hover:opacity-100"
+                  }`}
               />
             ))}
           </div>
