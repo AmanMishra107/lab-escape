@@ -41,12 +41,15 @@ export function LiveChat() {
     setReady(true);
   }, []);
 
+  const [realtimeOk, setRealtimeOk] = useState<boolean | null>(null);
+
   // load + realtime — only show messages from this session onwards
   useEffect(() => {
     if (!identity) return;
     let alive = true;
     const sessionStart = getSessionStart();
     void fetchMessages(sessionStart).then((m) => alive && setMessages(m));
+
     const channel = supabase
       .channel("lab_chat")
       .on(
@@ -60,9 +63,28 @@ export function LiveChat() {
           if (msg.player_id !== identity.id) sound.play("pop");
         },
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") setRealtimeOk(true);
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") setRealtimeOk(false);
+      });
+
+    // Polling fallback — re-fetches every 5 s in case WebSockets are blocked
+    // (common on college/corporate networks). De-dupes by ID so no flicker.
+    const poll = window.setInterval(async () => {
+      if (!alive) return;
+      const fresh = await fetchMessages(sessionStart);
+      setMessages((prev) => {
+        const existingIds = new Set(prev.map((m) => m.id));
+        const newMsgs = fresh.filter((m) => !existingIds.has(m.id));
+        if (newMsgs.length === 0) return prev;
+        newMsgs.forEach((m) => { if (m.player_id !== identity.id) sound.play("pop"); });
+        return [...prev, ...newMsgs].slice(-200);
+      });
+    }, 2_000);
+
     return () => {
       alive = false;
+      window.clearInterval(poll);
       void supabase.removeChannel(channel);
     };
   }, [identity]);
@@ -129,7 +151,9 @@ export function LiveChat() {
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <h3 className="font-display text-xl">LAB CHAT</h3>
-          <Tag tone="green">LIVE</Tag>
+          {realtimeOk === true && <Tag tone="green">LIVE</Tag>}
+          {realtimeOk === false && <Tag tone="yellow">POLLING</Tag>}
+          {realtimeOk === null && <Tag tone="yellow">LIVE</Tag>}
           <Tag tone="yellow">SESSION ONLY</Tag>
         </div>
         <div className="flex items-center gap-2">
